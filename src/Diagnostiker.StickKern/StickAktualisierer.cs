@@ -27,6 +27,14 @@ public sealed class StickAktualisierer(ILaufwerkQuelle quelle, IBefehlsausfuehre
         var teil = partition.Treffer.Teil;
 
         var punkt = teil.Einhaengepunkte.FirstOrDefault();
+        if (punkt is not null && !Aktualisierung.IstBeschreibbar(punkt))
+        {
+            // z. B. nur zum Lesen eingehängt: aushängen und beschreibbar neu einhängen
+            ausgabe($"{teil.Pfad} ist schreibgeschützt eingehängt, hänge ihn neu ein.");
+            var u = await befehle.AusfuehrenAsync("udisksctl", ["unmount", "-b", teil.Pfad], null, ausgabe, ct);
+            if (u != 0) return new(null, $"{teil.Pfad} ist schreibgeschützt eingehängt und lässt sich nicht aushängen.", null);
+            punkt = null;
+        }
         if (punkt is null)
         {
             ausgabe($"Einhängen: {teil.Pfad}");
@@ -35,6 +43,8 @@ public sealed class StickAktualisierer(ILaufwerkQuelle quelle, IBefehlsausfuehre
             punkt = (await quelle.LesenAsync(ct)).FirstOrDefault(l => l.Pfad == laufwerk.Pfad)?
                 .Partitionen.FirstOrDefault(p => p.Pfad == teil.Pfad)?.Einhaengepunkte.FirstOrDefault();
             if (punkt is null) return new(null, $"{teil.Pfad} ist nach dem Einhängen nicht zu finden.", null);
+            if (!Aktualisierung.IstBeschreibbar(punkt))
+                return new(null, $"{teil.Pfad} lässt sich nicht beschreibbar einhängen (Schreibschutzschalter am Stick?).", teil.Pfad);
         }
 
         if (!File.Exists(Path.Combine(punkt, "stick.json")))

@@ -124,6 +124,7 @@ public sealed class AktualisierungTests : IDisposable
     }
 }
 
+[System.Runtime.Versioning.SupportedOSPlatform("linux")]
 public class StickAktualisiererTests
 {
     const long GiB = 1L << 30;
@@ -192,6 +193,55 @@ public class StickAktualisiererTests
             Assert.DoesNotContain(b.Programme, p => p.StartsWith("udisksctl"));
         }
         finally { Directory.Delete(proj, true); }
+    }
+
+    [Fact]
+    public async Task Schreibgeschuetzt_eingehaengter_Stick_wird_neu_eingehaengt()
+    {
+        var proj = ProjektMitStick(true, out var rw);
+        var ro = Directory.CreateTempSubdirectory("ro").FullName;
+        File.WriteAllText(Path.Combine(ro, "stick.json"), """{"schema":1}""");
+        File.SetUnixFileMode(ro, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            if (Environment.IsPrivilegedProcess) return;   // Root kann auch in "schreibgeschützte" Ordner schreiben
+            var b = new Befehle();
+            var q = new Quelle(i => [i == 0 ? Stick("usb", ro) : Stick("usb", rw)]);   // nach dem Neueinhängen: beschreibbar
+            var v = await Aktualisierer(q, b, proj).VorbereitenAsync(_ => { });
+
+            Assert.Null(v.Fehler);
+            Assert.Equal(rw, v.Plan!.StickOrdner);
+            var kommandos = b.Programme.Where(p => p.StartsWith("udisksctl")).ToList();
+            Assert.Equal(["udisksctl unmount -b /dev/sdd3", "udisksctl mount -b /dev/sdd3"], kommandos);
+        }
+        finally
+        {
+            File.SetUnixFileMode(ro, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(ro, true);
+            Directory.Delete(proj, true);
+        }
+    }
+
+    [Fact]
+    public async Task Bleibt_der_Stick_auch_nach_dem_Neueinhaengen_schreibgeschuetzt_gibt_es_eine_klare_Meldung()
+    {
+        var proj = ProjektMitStick(true, out _);
+        var ro = Directory.CreateTempSubdirectory("ro").FullName;
+        File.WriteAllText(Path.Combine(ro, "stick.json"), """{"schema":1}""");
+        File.SetUnixFileMode(ro, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        try
+        {
+            if (Environment.IsPrivilegedProcess) return;
+            var v = await Aktualisierer(new Quelle(_ => [Stick("usb", ro)]), new Befehle(), proj).VorbereitenAsync(_ => { });
+            Assert.Null(v.Plan);
+            Assert.Contains("nicht beschreibbar einhängen", v.Fehler);
+        }
+        finally
+        {
+            File.SetUnixFileMode(ro, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            Directory.Delete(ro, true);
+            Directory.Delete(proj, true);
+        }
     }
 
     [Fact]

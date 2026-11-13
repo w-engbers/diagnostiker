@@ -159,6 +159,19 @@ public static class Aktualisierung
         }
     }
 
+    /// <summary>Kann in dem Ordner eine Datei angelegt werden? (Ein schreibgeschützt eingehängter Stick besteht das nicht.)</summary>
+    public static bool IstBeschreibbar(string ordner)
+    {
+        try
+        {
+            var probe = Path.Combine(ordner, ".schreibtest");
+            File.WriteAllText(probe, "x");
+            File.Delete(probe);
+            return true;
+        }
+        catch { return false; }
+    }
+
     public static string Hash(string datei)
     {
         using var s = File.OpenRead(datei);
