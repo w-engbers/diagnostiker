@@ -1,0 +1,41 @@
+#!/bin/sh
+# Startet den Diagnostiker auf der ersten Konsole des Live-Systems.
+# Protokolle gehen auf die Datenpartition des Sticks (Label DIAGDATEN), falls vorhanden.
+
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+export DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/dotnet-extract
+export LANG=de_DE.UTF-8
+
+PROT=/root/protokolle
+DATA=$(blkid -L DIAGDATEN 2>/dev/null)
+if [ -n "$DATA" ]; then
+    mkdir -p /mnt/diagdaten
+    mountpoint -q /mnt/diagdaten || mount "$DATA" /mnt/diagdaten 2>/dev/null
+    mountpoint -q /mnt/diagdaten && PROT=/mnt/diagdaten/protokolle
+fi
+mkdir -p "$PROT"
+
+# Bevorzugt das Programm und die Module von der Datenpartition (Updates ohne neues Abbild),
+# sonst die eingebaute Kopie als Rückfall.
+PROG=/opt/diagnostiker/bin/Diagnostiker.Tui
+MOD=/opt/diagnostiker/module
+if mountpoint -q /mnt/diagdaten && [ -f /mnt/diagdaten/bin/linux-x64/Diagnostiker ] && [ -d /mnt/diagdaten/module ]; then
+    PROG=/mnt/diagdaten/bin/linux-x64/Diagnostiker
+    MOD=/mnt/diagdaten/module
+    # Ohne Ausführungsrecht auf dem Datenträger (je nach Einbindung) von einer Kopie starten.
+    [ -x "$PROG" ] || { cp "$PROG" /tmp/diagnostiker-prog && chmod +x /tmp/diagnostiker-prog && PROG=/tmp/diagnostiker-prog; }
+fi
+export DIAGNOSTIKER_QUELLE="$PROG"
+
+while true; do
+    "$PROG" --module "$MOD" --protokolle "$PROT"
+    echo
+    echo "[Enter] Diagnostiker neu starten   [s] Shell   [n] Netzwerk-Einrichtung   [a] Ausschalten   [r] Neustart"
+    read -r antwort
+    case "$antwort" in
+        s) /bin/bash -l ;;
+        n) nmtui ;;
+        a) sync; poweroff ;;
+        r) sync; reboot ;;
+    esac
+done
