@@ -10,7 +10,7 @@ Architektur und Reihenfolge: [docs/ARCHITEKTUR.md](docs/ARCHITEKTUR.md).
 
 ```
 src/Diagnostiker.Kern   Modul-Lader, Prozess-Ausführung, Bewertung, Sitzungsprotokoll
-src/Diagnostiker.Tui    Textoberfläche (Spectre.Console)
+src/Diagnostiker.Tui    Oberfläche: Bildschirmoberfläche (Terminal.Gui) und einfache Textansicht (Spectre.Console)
 module/<gruppe>/*.json  Prüfmodule als Manifeste (Befehl je Betriebssystem, Parameter, Bewertungsregeln)
 tests/                  Einheitentests
 docs/                   Architektur und weitere Dokumentation
@@ -60,6 +60,25 @@ Tests: `tests/stick/laufwerk-test.sh` (Loop-Gerät statt echtem Stick) und `dotn
 `werkzeuge/holen.sh` lädt sie, prüft GPG-Signatur und feste SHA-256-Summen und legt sie unter `cache/werkzeuge/` ab; `stick/staging.sh` ruft es auf.
 Auf dem Stick liegen sie unter `werkzeuge/win-x64/`, dazu Lizenztext und Quelltext unter `werkzeuge/lizenzen/` und `werkzeuge/quellen/`.
 Neue Versionen werden nie automatisch übernommen: neuen Eintrag mit geprüften Summen in die Sperrdatei schreiben.
+
+## Bedienung des Prüfprogramms
+
+Das Programm startet eine Bildschirmoberfläche im Textmodus (läuft auf der Linux-Konsole und in Windows-Konsolen, ohne Grafikmodus):
+links die Prüfungen mit Bewertung, rechts die Einzelheiten der markierten Prüfung (scrollbar), unten die Tasten.
+
+| Taste | Wirkung |
+|---|---|
+| Pfeiltasten, Enter | Prüfung wählen, ausführen |
+| F5 | Schnellprüfung (alle harmlosen Standardtests), danach Zusammenfassung |
+| F6 | Netzwerk verbinden (nur im Live-System, `nmtui`) |
+| F7, F8 | Notiz zum Protokoll, Zusammenfassung |
+| F9 oder Tab | zwischen Liste und Einzelheiten wechseln (dort mit Bild-auf/Bild-ab blättern) |
+| F10 | Beenden, der Bericht wird gespeichert |
+
+`--text` startet die einfache Textansicht (Menü und fortlaufende Ausgabe), `--schnell` führt ohne Menü alle Schnellprüfungen aus.
+Lässt sich die Bildschirmoberfläche nicht starten, folgt die einfache Textansicht von selbst. Im Live-System startet
+`DIAGNOSTIKER_OBERFLAECHE=text` die Textansicht in tmux (Bild-auf blättert zurück).
+Die Konsolenschrift von Linux hat keine Glyphen für ✔ ✘ ▲ ▼: Bewertungen stehen deshalb als Wörter ([OK], [FEHLER] …).
 
 ## Bauen und Testen
 

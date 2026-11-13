@@ -10,7 +10,7 @@ Schwerpunkte der ersten Ausbaustufe: **Booten, Lesen der Platte, Netzwerkverbind
 Anforderungen:
 - Der Stick bootet per **BIOS und UEFI**, **Secure Boot bleibt eingeschaltet** (kein Schlüsseleintrag).
 - Bei laufendem System des Prüflings startet die Oberfläche direkt vom Stick (Windows und Linux).
-- Zeichenorientierte Oberfläche, deutsch, ein Protokoll je Sitzung.
+- Zeichenorientierte Oberfläche (Terminal.Gui, ohne Grafikmodus, scrollbare Bereiche; einfache Textansicht als Rückfall), deutsch, ein Protokoll je Sitzung.
 - **Der Stick kann jederzeit neu erstellt und aktualisiert werden**, auch die verwendeten Werkzeuge.
 - Standardwerkzeuge vor Eigenbau, ein Bauweg, der auf jedem Linux-Rechner läuft und nachvollziehbar ist.
 - Eine Veröffentlichung ist eine **Option**, kein Ziel. Das Repo wird aber von Anfang an so geführt, als wäre es öffentlich.

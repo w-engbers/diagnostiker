@@ -1,197 +1,25 @@
-﻿using System.Diagnostics;
-using Diagnostiker.Kern;
-using Spectre.Console;
-using Status = Diagnostiker.Kern.Status;
-
-// Gewählte Zeile: weiß auf blau, gut lesbar auch auf der schwarzen Linux-Konsole (Standard wäre dunkelblaue Schrift).
-Style Markierung = new(Color.White, Color.Blue);
+// Diagnostiker – Textoberfläche.
+// Aufrufe: Diagnostiker [--module <pfad>] [--protokolle <pfad>] [--schnell | --text]
+//   ohne Option  Bildschirmoberfläche (Terminal.Gui); startet sie nicht, folgt die einfache Textansicht
+//   --text       einfache Textansicht (Menü und fortlaufende Ausgabe)
+//   --schnell    ohne Menü: alle Schnellprüfungen, dann die Zusammenfassung
+using Diagnostiker.Tui;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
-
-// Aufrufe: Diagnostiker [--module <pfad>] [--protokolle <pfad>] [--schnell]   (--schnell = ohne Menü, alle Schnellprüfungen)
 string? Option(string name) { var i = Array.IndexOf(args, name); return i >= 0 && i + 1 < args.Length ? args[i + 1] : null; }
-var automatisch = args.Contains("--schnell");
 
-var modulDir = ModulLader.ModulVerzeichnisFinden(Option("--module"));
-if (modulDir is null)
+var kontext = Kontext.Erstellen(Option("--module"), Option("--protokolle"));
+if (kontext is null) return 2;
+
+if (args.Contains("--schnell")) return await new TextOberflaeche(kontext).SchnellAsync();
+if (args.Contains("--text")) return await new TextOberflaeche(kontext).MenueAsync();
+
+try
 {
-    AnsiConsole.MarkupLine("[red]Verzeichnis 'module' nicht gefunden.[/] Mit --module <pfad> angeben.");
-    return 2;
+    return await new GuiOberflaeche(kontext).LaufenAsync();
 }
-
-var wurzel = Path.GetDirectoryName(modulDir)!;
-var (alleModule, ladefehler) = ModulLader.Laden(modulDir);
-var ausfuehrer = new ModulAusfuehrer(wurzel);
-var module = alleModule.Where(ausfuehrer.IstAnwendbar).OrderBy(m => m.Gruppe).ThenBy(m => m.Titel).ToList();
-
-var protokollWurzel = ProtokollVerzeichnis(Option("--protokolle") ?? Path.Combine(wurzel, "protokolle"));
-var session = new Session(protokollWurzel);
-
-AnsiConsole.Write(new Rule("[bold]Diagnostiker[/] – Prüfstick").LeftJustified());
-AnsiConsole.MarkupLine($"Rechner: [bold]{Markup.Escape(session.Rechnername)}[/]   System: {Plattform.OsName}   " +
-    (Plattform.HatAdminRechte ? "[green]Administratorrechte: ja[/]" : "[yellow]Administratorrechte: nein[/] (einige Prüfungen werden übersprungen)"));
-AnsiConsole.MarkupLine($"Protokoll: [grey]{Markup.Escape(session.Verzeichnis)}[/]");
-foreach (var f in ladefehler) AnsiConsole.MarkupLine($"[red]Modul fehlerhaft:[/] {Markup.Escape(f)}");
-AnsiConsole.WriteLine();
-
-if (automatisch)
+catch (Exception e)
 {
-    foreach (var m in module.Where(m => m.Schnellpruefung && !m.Schreibend)) await ModulLaufenLassen(m, fragen: false);
-    Zusammenfassung();
-    return 0;
-}
-
-// Im Live-System (Root, NetworkManager) lässt sich das Netzwerk aus dem Programm heraus einrichten.
-const string NetzwerkEintrag = "Netzwerk verbinden (WLAN/LAN einrichten)";
-var netzwerkEinrichten = Plattform.IstLinux && Plattform.HatAdminRechte && ProgrammVorhanden("nmtui");
-
-while (true)
-{
-    var auswahl = new List<string> { "Schnellprüfung (alle harmlosen Standardtests)", "Einzelne Prüfung wählen" };
-    if (netzwerkEinrichten) auswahl.Add(NetzwerkEintrag);
-    auswahl.AddRange(["Notiz zum Protokoll hinzufügen", "Zusammenfassung anzeigen", "Beenden"]);
-    var wahl = AnsiConsole.Prompt(new SelectionPrompt<string>()
-        .HighlightStyle(Markierung)
-        .Title("Was soll geprüft werden?")
-        .PageSize(15)
-        .AddChoices(auswahl));
-
-    switch (wahl)
-    {
-        case var w when w.StartsWith("Schnell"):
-            foreach (var m in module.Where(m => m.Schnellpruefung && !m.Schreibend)) await ModulLaufenLassen(m, fragen: true);
-            Zusammenfassung();
-            break;
-        case "Einzelne Prüfung wählen":
-            var gewaehlt = AnsiConsole.Prompt(new SelectionPrompt<ModulDefinition>()
-                .HighlightStyle(Markierung)
-                .Title("Welche Prüfung?")
-                .PageSize(15)
-                .UseConverter(m => $"{m.Gruppe}: {m.Titel}")
-                .AddChoices(module));
-            await ModulLaufenLassen(gewaehlt, fragen: true);
-            break;
-        case NetzwerkEintrag:
-            await NetzwerkVerbindenAsync();
-            break;
-        case "Notiz zum Protokoll hinzufügen":
-            session.Notiz = AnsiConsole.Prompt(new TextPrompt<string>("Notiz (z. B. Name/Beschwerde des Besitzers):").AllowEmpty());
-            session.Speichern();
-            break;
-        case "Zusammenfassung anzeigen":
-            Zusammenfassung();
-            break;
-        default:
-            session.Speichern();
-            AnsiConsole.MarkupLine($"Bericht: [bold]{Markup.Escape(Path.Combine(session.Verzeichnis, "bericht.md"))}[/]");
-            return 0;
-    }
-    AnsiConsole.WriteLine();
-}
-
-async Task NetzwerkVerbindenAsync()
-{
-    // Frisch gestartet kennt der NetworkManager oft noch keine WLAN-Netze: erst neu suchen lassen, dann die Liste zeigen.
-    await AnsiConsole.Status().StartAsync("Suche WLAN-Netze …", async _ =>
-    {
-        try
-        {
-            using var rescan = Process.Start(new ProcessStartInfo("nmcli", ["device", "wifi", "rescan"])
-                { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true })!;
-            await rescan.WaitForExitAsync();
-        }
-        catch { /* ohne nmcli oder ohne WLAN geht es trotzdem weiter */ }
-        await Task.Delay(TimeSpan.FromSeconds(4));
-    });
-
-    // nmtui ist ein eigenes Textprogramm und bekommt das Terminal ganz für sich.
-    try
-    {
-        using var p = Process.Start(new ProcessStartInfo("nmtui") { UseShellExecute = false })!;
-        await p.WaitForExitAsync();
-    }
-    catch (Exception e)
-    {
-        AnsiConsole.MarkupLine($"[red]nmtui lässt sich nicht starten:[/] {Markup.Escape(e.Message)}");
-        return;
-    }
-    AnsiConsole.Clear();
-    if (AnsiConsole.Confirm("Netzwerkprüfung jetzt wiederholen?", true))
-        foreach (var m in module.Where(m => m.Gruppe == "Netzwerk")) await ModulLaufenLassen(m, fragen: false);
-}
-
-static bool ProgrammVorhanden(string name) =>
-    (Environment.GetEnvironmentVariable("PATH") ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries)
-        .Any(d => File.Exists(Path.Combine(d, name)));
-
-async Task ModulLaufenLassen(ModulDefinition m, bool fragen)
-{
-    if (m.Schreibend && !AnsiConsole.Confirm($"[yellow]'{Markup.Escape(m.Titel)}' verändert Daten auf dem Prüfling.[/] Wirklich ausführen?", false)) return;
-
-    var parameter = new Dictionary<string, string>();
-    foreach (var p in m.Parameter)
-        parameter[p.Name] = fragen
-            ? AnsiConsole.Prompt(new TextPrompt<string>(Markup.Escape(p.Frage)).DefaultValue(p.Standard))
-            : p.Standard;
-
-    ModulErgebnis erg = null!;
-    await AnsiConsole.Status().StartAsync($"{m.Titel} …", async _ => { erg = await ausfuehrer.AusfuehrenAsync(m, parameter); });
-    session.Hinzufuegen(erg);
-
-    AnsiConsole.MarkupLine($"{Farbe(erg.Status)} [bold]{Markup.Escape(erg.Titel)}[/]");
-    foreach (var s in erg.Schritte)
-    {
-        AnsiConsole.MarkupLine($"   {Farbe(s.Status)} {Markup.Escape(s.Titel)}");
-        foreach (var meldung in s.Meldungen) AnsiConsole.MarkupLine($"        [grey]•[/] {Markup.Escape(meldung)}");
-    }
-}
-
-void Zusammenfassung()
-{
-    // Je Prüfung nur der neueste Lauf; war es ein Wiederholungslauf, steht der vorherige Befund daneben.
-    var tabelle = new Table().Border(TableBorder.Rounded).AddColumn("Bewertung").AddColumn("Prüfung").AddColumn("Stand").AddColumn("Vorher");
-    foreach (var e in session.Aktuelle)
-    {
-        var vorher = session.Vorheriger(e);
-        tabelle.AddRow(Farbe(e.Status), Markup.Escape(e.Titel), $"{e.Beginn:HH:mm}",
-            vorher is null ? "" : $"[grey]{vorher.Beginn:HH:mm} {Markup.Escape(Session.Text(vorher.Status))}[/]");
-    }
-    AnsiConsole.Write(tabelle);
-    var gesamt = ModulAusfuehrer.ZusammenfassenStatus(session.Aktuelle.Select(e => e.Status));
-    AnsiConsole.MarkupLine($"Gesamtbewertung: {Farbe(gesamt)}");
-    session.Speichern();
-    AnsiConsole.MarkupLine($"Bericht: [bold]{Markup.Escape(Path.Combine(session.Verzeichnis, "bericht.md"))}[/]");
-}
-
-// Die Linux-Textkonsole (TERM=linux) hat keine Glyphen für ✔ ⚠ ✘ ℹ – dort ASCII-Kennzeichen.
-static string Farbe(Status s)
-{
-    var einfach = Environment.GetEnvironmentVariable("TERM") == "linux";
-    return s switch
-    {
-        Status.Ok => einfach ? "[green][[OK]][/]" : "[green]✔ OK[/]",
-        Status.Warnung => einfach ? "[yellow][[WARNUNG]][/]" : "[yellow]⚠ WARNUNG[/]",
-        Status.Fehler => einfach ? "[red][[FEHLER]][/]" : "[red]✘ FEHLER[/]",
-        Status.Uebersprungen => einfach ? "[grey][[uebersprungen]][/]" : "[grey]– übersprungen[/]",
-        _ => einfach ? "[blue][[Info]][/]" : "[blue]ℹ Info[/]",
-    };
-}
-
-// Ist der Stick schreibgeschützt (oder das Verzeichnis nicht beschreibbar), wird ins temporäre Verzeichnis ausgewichen.
-static string ProtokollVerzeichnis(string gewuenscht)
-{
-    try
-    {
-        Directory.CreateDirectory(gewuenscht);
-        var probe = Path.Combine(gewuenscht, ".schreibtest");
-        File.WriteAllText(probe, "x");
-        File.Delete(probe);
-        return gewuenscht;
-    }
-    catch
-    {
-        var ersatz = Path.Combine(Path.GetTempPath(), "diagnostiker-protokolle");
-        AnsiConsole.MarkupLine($"[yellow]Stick nicht beschreibbar – Protokolle gehen nach {Markup.Escape(ersatz)}[/]");
-        return ersatz;
-    }
+    Console.Error.WriteLine($"Die Bildschirmoberfläche lässt sich nicht starten ({e.GetType().Name}: {e.Message}). Es folgt die einfache Textansicht.");
+    return await new TextOberflaeche(kontext).MenueAsync();
 }
