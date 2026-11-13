@@ -14,5 +14,5 @@ lb config noauto \
     --iso-application "Diagnostiker" \
     --memtest memtest86+ \
     --apt-indices false \
-    --bootappend-live "boot=live components quiet noprompt username=root live-config.username=root locales=de_DE.UTF-8 keyboard-layouts=de timezone=Europe/Berlin" \
+    --bootappend-live "boot=live components quiet noprompt username=root live-config.username=root locales=de_DE.UTF-8 keyboard-layouts=de timezone=Europe/Berlin cfg80211.ieee80211_regdom=DE" \
     "${@}"

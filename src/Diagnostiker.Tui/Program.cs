@@ -3,6 +3,9 @@ using Diagnostiker.Kern;
 using Spectre.Console;
 using Status = Diagnostiker.Kern.Status;
 
+// Gewählte Zeile: weiß auf blau, gut lesbar auch auf der schwarzen Linux-Konsole (Standard wäre dunkelblaue Schrift).
+Style Markierung = new(Color.White, Color.Blue);
+
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
 // Aufrufe: Diagnostiker [--module <pfad>] [--protokolle <pfad>] [--schnell]   (--schnell = ohne Menü, alle Schnellprüfungen)
@@ -48,6 +51,7 @@ while (true)
     if (netzwerkEinrichten) auswahl.Add(NetzwerkEintrag);
     auswahl.AddRange(["Notiz zum Protokoll hinzufügen", "Zusammenfassung anzeigen", "Beenden"]);
     var wahl = AnsiConsole.Prompt(new SelectionPrompt<string>()
+        .HighlightStyle(Markierung)
         .Title("Was soll geprüft werden?")
         .PageSize(15)
         .AddChoices(auswahl));
@@ -60,6 +64,7 @@ while (true)
             break;
         case "Einzelne Prüfung wählen":
             var gewaehlt = AnsiConsole.Prompt(new SelectionPrompt<ModulDefinition>()
+                .HighlightStyle(Markierung)
                 .Title("Welche Prüfung?")
                 .PageSize(15)
                 .UseConverter(m => $"{m.Gruppe}: {m.Titel}")

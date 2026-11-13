@@ -2,6 +2,11 @@
 # Startet den Diagnostiker auf der ersten Konsole des Live-Systems.
 # Protokolle gehen auf die Datenpartition des Sticks (Label DIAGDATEN), falls vorhanden.
 
+# In tmux starten (Rückblättern mit Bild-auf, siehe /etc/diagnostiker-tmux.conf). Gelingt das nicht, läuft das Programm ohne.
+if [ -z "${TMUX:-}" ] && [ -z "${DIAGNOSTIKER_OHNE_TMUX:-}" ] && command -v tmux >/dev/null 2>&1; then
+    if tmux -f /etc/diagnostiker-tmux.conf new-session -s diagnostiker "$0"; then exit 0; fi
+fi
+
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 export DOTNET_BUNDLE_EXTRACT_BASE_DIR=/tmp/dotnet-extract
 export LANG=de_DE.UTF-8

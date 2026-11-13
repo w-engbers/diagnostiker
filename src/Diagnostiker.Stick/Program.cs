@@ -7,6 +7,9 @@
 using Diagnostiker.StickKern;
 using Spectre.Console;
 
+// Gewählte Zeile: weiß auf blau, gut lesbar auch auf der schwarzen Linux-Konsole (Standard wäre dunkelblaue Schrift).
+Style Markierung = new(Color.White, Color.Blue);
+
 if (!OperatingSystem.IsLinux())
 {
     AnsiConsole.MarkupLine("[red]Der Stick-Manager läuft nur unter Linux.[/]");
@@ -33,6 +36,7 @@ while (true)
 {
     AnsiConsole.Write(new Rule("Diagnostiker – Stick-Manager") { Justification = Justify.Left });
     var wahl = AnsiConsole.Prompt(new SelectionPrompt<string>()
+        .HighlightStyle(Markierung)
         .Title("Was soll getan werden?")
         .AddChoices("Laufwerke ansehen", "Stick erstellen", "Stick aktualisieren", "Abbild (ISO) bauen", "Beenden"));
     switch (wahl)
@@ -73,7 +77,7 @@ async Task StickErstellenAsync()
     }
 
     var wahlen = geeignet.Select(l => $"{l.Pfad}  {l.Beschreibung}  {Sicherheit.Groesse(l.Groesse)}").Append("Abbrechen").ToList();
-    var gewaehlt = AnsiConsole.Prompt(new SelectionPrompt<string>().Title("Auf welchen Stick soll geschrieben werden?").AddChoices(wahlen));
+    var gewaehlt = AnsiConsole.Prompt(new SelectionPrompt<string>().HighlightStyle(Markierung).Title("Auf welchen Stick soll geschrieben werden?").AddChoices(wahlen));
     if (gewaehlt == "Abbrechen") return;
     var laufwerk = geeignet[wahlen.IndexOf(gewaehlt)];
 
