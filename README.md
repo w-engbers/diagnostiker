@@ -41,6 +41,19 @@ stick/bauen.sh [GiB]                                       # Stick-Abbild nach b
 tests/boot/boot-test.sh build/stick/diagnostiker-stick.img uefi-sb
 ```
 
+## Stick-Manager
+
+Textoberfläche zum Erstellen des Sticks (nur unter Linux, Docker und .NET-SDK 10 nötig):
+
+```
+dotnet run --project src/Diagnostiker.Stick          # Menü: Laufwerke ansehen, Stick erstellen, Abbild bauen
+dotnet run --project src/Diagnostiker.Stick -- laufwerke   # nur lesend: Laufwerke und ihre Eignung
+```
+
+Angeboten werden nur USB-Laufwerke zwischen 4 und 512 GiB, die das System nicht benutzt. Vor dem Schreiben muss der Gerätename
+eingetippt werden, vor jedem Schritt wird erneut geprüft, und `stick/stick-erstellen.sh` prüft das Ziel im Container noch einmal selbst.
+Tests: `tests/stick/laufwerk-test.sh` (Loop-Gerät statt echtem Stick) und `dotnet test`.
+
 ## Bauen und Testen
 
 Voraussetzung: .NET-SDK 10.
