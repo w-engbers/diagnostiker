@@ -86,6 +86,19 @@ while (true)
 
 async Task NetzwerkVerbindenAsync()
 {
+    // Frisch gestartet kennt der NetworkManager oft noch keine WLAN-Netze: erst neu suchen lassen, dann die Liste zeigen.
+    await AnsiConsole.Status().StartAsync("Suche WLAN-Netze …", async _ =>
+    {
+        try
+        {
+            using var rescan = Process.Start(new ProcessStartInfo("nmcli", ["device", "wifi", "rescan"])
+                { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true })!;
+            await rescan.WaitForExitAsync();
+        }
+        catch { /* ohne nmcli oder ohne WLAN geht es trotzdem weiter */ }
+        await Task.Delay(TimeSpan.FromSeconds(4));
+    });
+
     // nmtui ist ein eigenes Textprogramm und bekommt das Terminal ganz für sich.
     try
     {
@@ -130,10 +143,16 @@ async Task ModulLaufenLassen(ModulDefinition m, bool fragen)
 
 void Zusammenfassung()
 {
-    var tabelle = new Table().Border(TableBorder.Rounded).AddColumn("Bewertung").AddColumn("Prüfung");
-    foreach (var e in session.Ergebnisse) tabelle.AddRow(Farbe(e.Status), Markup.Escape(e.Titel));
+    // Je Prüfung nur der neueste Lauf; war es ein Wiederholungslauf, steht der vorherige Befund daneben.
+    var tabelle = new Table().Border(TableBorder.Rounded).AddColumn("Bewertung").AddColumn("Prüfung").AddColumn("Stand").AddColumn("Vorher");
+    foreach (var e in session.Aktuelle)
+    {
+        var vorher = session.Vorheriger(e);
+        tabelle.AddRow(Farbe(e.Status), Markup.Escape(e.Titel), $"{e.Beginn:HH:mm}",
+            vorher is null ? "" : $"[grey]{vorher.Beginn:HH:mm} {Markup.Escape(Session.Text(vorher.Status))}[/]");
+    }
     AnsiConsole.Write(tabelle);
-    var gesamt = ModulAusfuehrer.ZusammenfassenStatus(session.Ergebnisse.Select(e => e.Status));
+    var gesamt = ModulAusfuehrer.ZusammenfassenStatus(session.Aktuelle.Select(e => e.Status));
     AnsiConsole.MarkupLine($"Gesamtbewertung: {Farbe(gesamt)}");
     session.Speichern();
     AnsiConsole.MarkupLine($"Bericht: [bold]{Markup.Escape(Path.Combine(session.Verzeichnis, "bericht.md"))}[/]");
