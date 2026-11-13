@@ -1,4 +1,5 @@
-﻿using Diagnostiker.Kern;
+﻿using System.Diagnostics;
+using Diagnostiker.Kern;
 using Spectre.Console;
 using Status = Diagnostiker.Kern.Status;
 
@@ -37,12 +38,19 @@ if (automatisch)
     return 0;
 }
 
+// Im Live-System (Root, NetworkManager) lässt sich das Netzwerk aus dem Programm heraus einrichten.
+const string NetzwerkEintrag = "Netzwerk verbinden (WLAN/LAN einrichten)";
+var netzwerkEinrichten = Plattform.IstLinux && Plattform.HatAdminRechte && ProgrammVorhanden("nmtui");
+
 while (true)
 {
+    var auswahl = new List<string> { "Schnellprüfung (alle harmlosen Standardtests)", "Einzelne Prüfung wählen" };
+    if (netzwerkEinrichten) auswahl.Add(NetzwerkEintrag);
+    auswahl.AddRange(["Notiz zum Protokoll hinzufügen", "Zusammenfassung anzeigen", "Beenden"]);
     var wahl = AnsiConsole.Prompt(new SelectionPrompt<string>()
         .Title("Was soll geprüft werden?")
         .PageSize(15)
-        .AddChoices("Schnellprüfung (alle harmlosen Standardtests)", "Einzelne Prüfung wählen", "Notiz zum Protokoll hinzufügen", "Zusammenfassung anzeigen", "Beenden"));
+        .AddChoices(auswahl));
 
     switch (wahl)
     {
@@ -58,6 +66,9 @@ while (true)
                 .AddChoices(module));
             await ModulLaufenLassen(gewaehlt, fragen: true);
             break;
+        case NetzwerkEintrag:
+            await NetzwerkVerbindenAsync();
+            break;
         case "Notiz zum Protokoll hinzufügen":
             session.Notiz = AnsiConsole.Prompt(new TextPrompt<string>("Notiz (z. B. Name/Beschwerde des Besitzers):").AllowEmpty());
             session.Speichern();
@@ -72,6 +83,28 @@ while (true)
     }
     AnsiConsole.WriteLine();
 }
+
+async Task NetzwerkVerbindenAsync()
+{
+    // nmtui ist ein eigenes Textprogramm und bekommt das Terminal ganz für sich.
+    try
+    {
+        using var p = Process.Start(new ProcessStartInfo("nmtui") { UseShellExecute = false })!;
+        await p.WaitForExitAsync();
+    }
+    catch (Exception e)
+    {
+        AnsiConsole.MarkupLine($"[red]nmtui lässt sich nicht starten:[/] {Markup.Escape(e.Message)}");
+        return;
+    }
+    AnsiConsole.Clear();
+    if (AnsiConsole.Confirm("Netzwerkprüfung jetzt wiederholen?", true))
+        foreach (var m in module.Where(m => m.Gruppe == "Netzwerk")) await ModulLaufenLassen(m, fragen: false);
+}
+
+static bool ProgrammVorhanden(string name) =>
+    (Environment.GetEnvironmentVariable("PATH") ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries)
+        .Any(d => File.Exists(Path.Combine(d, name)));
 
 async Task ModulLaufenLassen(ModulDefinition m, bool fragen)
 {

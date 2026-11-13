@@ -16,7 +16,7 @@
       "hinweis": "smartctl.exe muss unter werkzeuge\\win-x64 auf dem Stick liegen.",
       "regeln": [
         { "typ": "enthaelt", "wert": "PASSED", "status": "Ok", "meldung": "SMART-Selbstbewertung: in Ordnung." },
-        { "typ": "enthaelt", "wert": "FAILED", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
+        { "typ": "regex", "wert": "result: FAILED|Health Status: (FAILURE|FAILED)", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
         { "typ": "regex", "wert": "^\\s*(5|196|197|198)\\s+\\S+.*\\s[1-9]\\d*\\s*$", "status": "Warnung", "meldung": "Umgelagerte oder defekte Sektoren gefunden – Platte beobachten, Datensicherung prüfen." },
         { "typ": "enthaelt", "wert": "Permission denied", "status": "Warnung", "meldung": "Kein Zugriff auf den Datenträger." },
         { "typ": "enthaelt", "wert": "Unable to detect device type", "status": "Warnung", "meldung": "SMART nicht abfragbar (RAID/USB-Gehäuse?)." }
@@ -31,7 +31,7 @@
       "hinweis": "smartmontools ist nicht installiert (im Live-System enthalten).",
       "regeln": [
         { "typ": "enthaelt", "wert": "PASSED", "status": "Ok", "meldung": "SMART-Selbstbewertung: in Ordnung." },
-        { "typ": "enthaelt", "wert": "FAILED", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
+        { "typ": "regex", "wert": "result: FAILED|Health Status: (FAILURE|FAILED)", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
         { "typ": "regex", "wert": "^\\s*(5|196|197|198)\\s+\\S+.*\\s[1-9]\\d*\\s*$", "status": "Warnung", "meldung": "Umgelagerte oder defekte Sektoren gefunden – Platte beobachten, Datensicherung prüfen." },
         { "typ": "regex", "wert": "Media and Data Integrity Errors:\\s+[1-9]", "status": "Warnung", "meldung": "NVMe meldet Integritätsfehler." },
         { "typ": "enthaelt", "wert": "Unable to detect device type", "status": "Warnung", "meldung": "SMART nicht abfragbar (RAID/USB-Gehäuse?)." }

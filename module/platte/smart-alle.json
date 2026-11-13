@@ -1,0 +1,72 @@
+{
+  "id": "platte.smart-alle",
+  "titel": "Platten-Selbstdiagnose (SMART) aller Datenträger",
+  "gruppe": "Datenträger",
+  "beschreibung": "Fragt die SMART-Werte aller Datenträger ab (nur lesend). Hinter RAID-Controllern und bei vielen USB-Geräten nicht möglich.",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "SMART aller Datenträger",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "command -v smartctl >/dev/null 2>&1 || { echo SMARTCTL_FEHLT; exit 0; }\nn=0\nfor d in $(smartctl --scan 2>/dev/null | awk '{print $1}'); do\n  n=$((n+1))\n  modell=$(smartctl -i \"$d\" 2>/dev/null | sed -n 's/^\\(Device Model\\|Model Number\\|Product\\):[ ]*//p' | head -1)\n  groesse=$(lsblk -dn -o SIZE \"$d\" 2>/dev/null | tr -d ' '); [ -n \"$groesse\" ] || groesse=$(lsblk -dn -o SIZE \"${d}n1\" 2>/dev/null | tr -d ' ')\n  name=\"$d (${modell:-unbekanntes Modell}, ${groesse:-?})\"\n  out=$(smartctl -H -A \"$d\" 2>&1)\n  if echo \"$out\" | grep -q 'Unable to detect device type\\|Permission denied\\|SMART support is: Unavailable'; then echo \"$name: SMART nicht abfragbar (RAID, USB-Gehäuse oder Stick)\"\n  elif echo \"$out\" | grep -Eq 'overall-health self-assessment test result: FAILED|Health Status: (FAILURE|FAILED)'; then echo \"$name: SMART meldet AUSFALL – sofort Daten sichern!\"\n  elif echo \"$out\" | grep -Eq '^[[:space:]]*(5|196|197|198)[[:space:]]+[^[:space:]]+.*[[:space:]][1-9][0-9]*[[:space:]]*$'; then echo \"$name: Umgelagerte oder defekte Sektoren – Platte beobachten, Datensicherung prüfen\"\n  elif echo \"$out\" | grep -Eq 'Media and Data Integrity Errors:[[:space:]]+[1-9]'; then echo \"$name: NVMe meldet Integritätsfehler\"\n  elif echo \"$out\" | grep -Eq 'PASSED|Health Status: OK'; then echo \"$name: SMART in Ordnung\"\n  else echo \"$name: SMART-Ergebnis unklar\"; fi\ndone\n[ $n -eq 0 ] && echo KEINE_DATENTRAEGER\nexit 0"
+      ],
+      "admin": true,
+      "timeoutSekunden": 120,
+      "zeigeAusgabe": true,
+      "hinweis": "smartmontools ist nicht installiert (im Live-System enthalten).",
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "SMARTCTL_FEHLT",
+          "status": "Uebersprungen",
+          "meldung": "smartctl ist nicht installiert."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SMART in Ordnung",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "AUSFALL",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "defekte Sektoren",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Integritätsfehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "nicht abfragbar",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "unklar",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
