@@ -249,4 +249,44 @@ public sealed class StartfaehigkeitModulTests : IDisposable
         Assert.Contains("KEINE_RECHTE", aus);
         Assert.DoesNotContain("[FEHLER]", aus);
     }
+
+    string FsckLauf(string ausgabe, int rc)
+    {
+        GesundesWindows();
+        var s = Lauf();   // Attrappen schreiben
+        Attrappe("fsck.fat", $"cat <<'ENDE'\n{ausgabe}\nENDE\nexit {rc}");
+        var psi = new ProcessStartInfo("sh") { RedirectStandardOutput = true, UseShellExecute = false };
+        psi.ArgumentList.Add(Path.Combine(ModulLader.ModulVerzeichnisFinden()!, "boot", "startfaehigkeit.sh"));
+        psi.Environment["PATH"] = Bin + ":/usr/bin:/bin";
+        psi.Environment["DIAGNOSTIKER_EINHAENGEN"] = Fs;
+        psi.Environment["DIAGNOSTIKER_MODUS"] = "UEFI";
+        using var p = Process.Start(psi)!;
+        var aus = p.StandardOutput.ReadToEnd();
+        p.WaitForExit();
+        return aus;
+    }
+
+    [Fact]
+    public void Nur_Dirty_Flag_auf_der_EFI_Partition_ist_harmlos()
+    {
+        var aus = FsckLauf("fsck.fat 4.2 (2021-01-31)\nThere are differences between boot sector and its backup.\nThis is mostly harmless. Differences: (offset:original/backup)\n  65:01/00\n  Not automatically fixing this.\nDirty bit is set. Fs was not properly unmounted and some data may be corrupt.\n Automatically removing dirty bit.\n\nLeaving filesystem unchanged.\nt.img: 0 files, 1/129022 clusters", 1);
+        Assert.DoesNotContain("[WARNUNG]", aus);
+        Assert.Contains("Dirty-Flag", aus);
+        Assert.Equal(Status.Ok, Bewerten(aus));
+    }
+
+    [Fact]
+    public void Echter_FAT_Fehler_wird_mit_Text_gemeldet()
+    {
+        var aus = FsckLauf("fsck.fat 4.2 (2021-01-31)\n/EFI/Microsoft/Boot/BCD\n  Start does point to root directory. Deleting dir.\n/dev/sda1: 12 files", 1);
+        Assert.Contains("[WARNUNG] Das Dateisystem der EFI-Systempartition", aus);
+        Assert.Contains("Start does point", aus);
+    }
+
+    [Fact]
+    public void Falsche_Zusammenfassung_freier_Cluster_ist_harmlos()
+    {
+        var aus = FsckLauf("fsck.fat 4.2 (2021-01-31)\nFree cluster summary wrong (5 vs. really 129021)\n  Auto-correcting.\n\nLeaving filesystem unchanged.\nt.img: 0 files, 1/129022 clusters", 1);
+        Assert.DoesNotContain("[WARNUNG]", aus);
+    }
 }

@@ -75,8 +75,17 @@ pruefe_esp() { # Gerät, Dateisystem, PARTUUID
     p=$1; fs=$2; pu=$(printf '%s' "$3" | tr 'A-F' 'a-f')
     hat_esp=1
     if [ "$fs" != vfat ]; then fehl "EFI-Systempartition $p ist nicht FAT-formatiert (gefunden: ${fs:-ohne Dateisystem}) – die Firmware kann sie nicht lesen."; return; fi
-    if command -v fsck.fat >/dev/null 2>&1 && ! fsck.fat -n "$p" >/dev/null 2>&1; then
-        warn "Das Dateisystem der EFI-Systempartition $p meldet Fehler oder ist nicht sauber beendet (fsck.fat)."
+    if command -v fsck.fat >/dev/null 2>&1; then
+        fsck_aus=$(fsck.fat -n "$p" 2>&1); fsck_rc=$?
+        if [ "$fsck_rc" != 0 ]; then
+            # Nur das Dirty-Flag oder eine falsche Zusammenfassung freier Cluster sind harmlos (Windows und Linux korrigieren das beim nächsten Schreiben).
+            ernst=$(printf '%s\n' "$fsck_aus" | sed 's/^ *//' | grep -Evi '^fsck\.fat|dirty bit|not properly unmounted|free cluster summary|differences between boot sector|mostly harmless|^differences:|^[0-9]+:[0-9a-f]+/[0-9a-f]+$|not automatically fixing|auto-correcting|automatically removing|leaving filesystem unchanged|: [0-9]+ files|perform changes|^$' | head -2 | cut -c1-160)
+            if [ -n "$ernst" ]; then
+                warn "Das Dateisystem der EFI-Systempartition $p meldet Fehler (fsck.fat): $(printf '%s' "$ernst" | tr '\n' ' ')"
+            else
+                info "Die EFI-Systempartition $p ist als nicht sauber beendet markiert (Dirty-Flag, z. B. nach hartem Ausschalten oder Schnellstart): meist harmlos."
+            fi
+        fi
     fi
     if ! einhaengen "$p" vfat; then fehl "EFI-Systempartition $p lässt sich nicht lesen."; return; fi
     if [ ! -d "$W/EFI" ]; then fehl "Die EFI-Systempartition $p ist leer (kein Ordner EFI) – es ist kein Bootloader installiert."; aushaengen; return; fi
