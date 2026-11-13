@@ -43,6 +43,10 @@ Stick-Manager, was zu aktualisieren ist.
 
 **Aktualisieren = Dateien kopieren.** Der Ordner `protokolle/` wird nie angefasst. Nur das Erstanlegen braucht Rohzugriff auf das Laufwerk.
 
+**Erstellen ist ein Ablauf, keine Vorlage.** exFAT lässt sich nicht nachträglich vergrößern. Eine fertige Vorlage mit Datenpartition ginge daher
+nur für eine feste Größe. Darum legt `stick/stick-erstellen.sh` den Stick jedes Mal neu an: GPT, `DIAGBOOT` aus dem ISO, GRUB für BIOS, dann `DIAGDATEN` auf den
+restlichen Platz, dann die Dateien. Dasselbe Skript schreibt vorerst in eine Abbild-Datei (Prüfung in QEMU), später auf ein gewähltes Laufwerk.
+
 ## 4. Basis (Live-System)
 
 - **Debian 13 „trixie“**, gebaut mit `live-build`. Begründung: Microsoft-signierte shim-Kette ohne Schlüsseleintrag, Firmware-Pakete
@@ -52,8 +56,8 @@ Stick-Manager, was zu aktualisieren ist.
   Ein Wechsel auf eine andere Distribution (zum Beispiel Ubuntu) ersetzt nur diesen Ordner.
 - **Der Bau läuft in einem Debian-Container** (Podman oder Docker, privilegiert), nicht auf dem Wirtsrechner. Dadurch ist er unabhängig von
   dessen Distribution und braucht keine VM. Der Wirt braucht nur den Container, `sgdisk`, `mkfs.*`, `qemu-img`.
-- Das Prüfprogramm steckt **nicht** im Basis-Abbild, sondern liegt auf `DIAGDATEN` und wird von dort gestartet. Fehlt `DIAGDATEN`, gibt es eine
-  eingebaute Rückfallkopie. So braucht ein Programmupdate kein neues Abbild.
+- Das Prüfprogramm wird **von `DIAGDATEN` gestartet** (Programm und Module), eine eingebaute Kopie im Abbild dient nur als Rückfall, wenn die Partition
+  fehlt. So braucht ein Programmupdate kein neues Abbild. Umgesetzt in `diagnostiker-start`.
 
 ## 5. Werkzeuge und Aktualisierung
 
@@ -94,6 +98,8 @@ ein Protokollordner je Sitzung (`session.json`, `bericht.md`, `roh/`). Siehe `RE
 
 ## 9. Umsetzungsreihenfolge
 
+Stand 13.11.2026: Schritt 1 und 2 erledigt, Schritt 3 im Wesentlichen (Stick-Abbild, `stick.json`, Start von `DIAGDATEN`, Test in QEMU).
+
 1. **Fundament:** Repo, SDK, Tests unter Linux grün, `.gitignore`, Prüfprogramm baut für beide Systeme.
 2. **Basisbau im Container:** Abbild reproduzierbar, QEMU-Bootprüfung.
 3. **Stick-Layout und `stick.json`,** Abbild schreiben, Aktualisieren per Kopie.
@@ -105,12 +111,9 @@ ein Protokollordner je Sitzung (`session.json`, `bericht.md`, `roh/`). Siehe `RE
 
 - **Secure Boot auf neuen Rechnern:** Die Zertifikate der Microsoft-„UEFI CA 2011“ laufen aus, neuere Geräte vertrauen teils nur noch der CA 2023.
   Prüfen, ob die im Debian-shim enthaltene Signatur beide abdeckt. Nur an echten Geräten zu klären.
-- **Autostart im Live-System:** In der Prototyp-Kopie fehlte `root/.profile` (Punktdatei beim Übertragen verloren). Im Neubau ersetzen wir sie
-  durch eine systemd-Einheit oder Live-Config-Hook, die nicht von einer Punktdatei abhängt.
 - **Podman oder Docker** ist auf dem Entwicklungsrechner noch nicht installiert. Fallback: Debian-`live-build` direkt im Chroot.
 - **Kernel-Aktualität** der Basis (Backports) und **Firmware** für die neueste Hardware.
-- **Herunterfahren** des Live-Systems dauert im Prototyp rund 96 s, Ursache offen.
-- **Einbindung von `DIAGDATEN` im Live-System:** Rückfallkopie und Reihenfolge noch zu entwerfen.
+- **Herunterfahren:** Im Prototyp (VirtualBox) dauerte es rund 96 s, unter QEMU/KVM sind es 2 bis 3 s. Vermutlich ein Effekt der VirtualBox-Umgebung, auf echter Hardware zu prüfen.
 - **Ersatz für „Stock-ISO plus Datenpartition“** (Basis-Update nur durch Austausch einer offiziellen ISO): Idee, nicht geprüft. Kleiner Test, ob sich
   Autostart und Paketumfang so erreichen lassen.
 - **Lizenzen** der Werkzeuge und der Debian-Firmware, Quellenangebot, falls veröffentlicht wird.

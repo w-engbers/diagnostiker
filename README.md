@@ -25,6 +25,22 @@ docs/                   Architektur und weitere Dokumentation
 - `zeigeAusgabe: true` übernimmt die Ausgabezeilen ins Ergebnis.
 - Konvention: Skripte geben **Marker** aus (`GATEWAY_STUMM`, `DNS_FEHLER` …), die Regeln prüfen die Marker statt sprachabhängiger Ausgabe.
 
+## Aufbau des Sticks
+
+```
+basis/debian/   Live-System (Debian 13, live-build im Docker-Container): bauen.sh, Konfiguration
+stick/          Stick-Abbild: bauen.sh (Datenpartition zusammenstellen), stick-erstellen.sh (läuft im Container), vorlage/ (Starter)
+tests/boot/     Bootprüfung in QEMU/KVM (BIOS und UEFI mit Secure Boot)
+```
+
+Ablauf (Voraussetzung: Docker, .NET-SDK 10, für die Bootprüfung `qemu-system-x86` und `ovmf`):
+
+```
+basis/debian/bauen.sh                                      # Live-ISO nach build/out/
+stick/bauen.sh [GiB]                                       # Stick-Abbild nach build/stick/ (schreibt auf kein Laufwerk)
+tests/boot/boot-test.sh build/stick/diagnostiker-stick.img uefi-sb
+```
+
 ## Bauen und Testen
 
 Voraussetzung: .NET-SDK 10.

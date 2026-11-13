@@ -1,0 +1,17 @@
+DIAGNOSTIKER - Pruefstick
+=========================
+
+A) Rechner startet nicht oder soll ohne installiertes System geprueft werden
+   -> Stick einstecken, Rechner starten, Boot-Menue des Rechners oeffnen (oft F12, F9, F8, Esc oder Entf)
+      und den USB-Stick waehlen. Nach wenigen Sekunden startet der Diagnostiker von selbst.
+   -> Secure Boot muss NICHT ausgeschaltet werden.
+
+B) Rechner laeuft (Windows)
+   -> Stick einstecken, im Laufwerk "DIAGDATEN" die Datei Start-Windows.cmd doppelt anklicken
+      (Windows fragt nach Administratorrechten). Ohne Administratorrechte: Start-Windows-ohne-Admin.cmd
+
+C) Rechner laeuft (Linux)
+   -> Im Laufwerk DIAGDATEN:  sh start-linux.sh
+
+Ergebnisse stehen im Ordner "protokolle" (pro Pruefung ein Ordner mit bericht.md, session.json und Rohdaten).
+Der Diagnostiker aendert nichts am gepruefen Rechner, solange keine ausdrueckliche Rueckfrage bestaetigt wird.
