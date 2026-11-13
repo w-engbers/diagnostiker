@@ -80,6 +80,7 @@ sealed class GuiOberflaeche(Kontext k)
         _zeilen.Clear();
         foreach (var m in k.Module) _zeilen.Add(Zeile(m));
         liste.SetSource(_zeilen);
+        liste.SelectedItem = Math.Min(_letzteAuswahl, Math.Max(0, k.Module.Count - 1));   // sichtbare Markierung von Anfang an
         links.CanFocus = true;
         links.Add(liste);
 
