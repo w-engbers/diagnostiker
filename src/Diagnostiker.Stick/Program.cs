@@ -3,7 +3,7 @@
 //   ohne Argument       Menü
 //   laufwerke           Laufwerke auflisten und bewerten (nur lesend), ohne Menü
 //   aktualisieren       Programm und Module auf einem vorhandenen Stick auf den neuesten Stand bringen
-//                       (mit --ja ohne Rückfrage, mit --plan nur anzeigen; protokolle/ wird nie angefasst)
+//                       (mit --ja ohne Rückfrage, mit --plan nur anzeigen, mit --basis auch das Live-System ersetzen; protokolle/ wird nie angefasst)
 using Diagnostiker.StickKern;
 using Spectre.Console;
 
@@ -29,7 +29,7 @@ var projekt = ProjektOrdner.Finden(AppContext.BaseDirectory, Directory.GetCurren
 
 if (args.Contains("aktualisieren"))
 {
-    return await StickAktualisierenAsync(args.Contains("--ja"), args.Contains("--plan")) ? 0 : 1;
+    return await StickAktualisierenAsync(args.Contains("--ja"), args.Contains("--plan"), args.Contains("--basis")) ? 0 : 1;
 }
 
 while (true)
@@ -45,7 +45,7 @@ while (true)
         case "Laufwerke ansehen": await LaufwerkeZeigenAsync(); break;
         case "Abbild (ISO) bauen": await IsoBauenAsync(); break;
         case "Stick erstellen": await StickErstellenAsync(); break;
-        case "Stick aktualisieren": await StickAktualisierenAsync(false, false); break;
+        case "Stick aktualisieren": await StickAktualisierenAsync(false, false, false); break;
     }
 }
 
@@ -100,7 +100,7 @@ async Task StickErstellenAsync()
     else Fehler(ergebnis.Meldung);
 }
 
-async Task<bool> StickAktualisierenAsync(bool ohneRueckfrage, bool nurPlan)
+async Task<bool> StickAktualisierenAsync(bool ohneRueckfrage, bool nurPlan, bool basisErzwingen)
 {
     if (projekt is null) { Fehler("Projektordner nicht gefunden. Bitte im Projektordner starten."); return false; }
     if (!File.Exists(Path.Combine(projekt, "build", "out", "diagnostiker.iso")))
@@ -125,8 +125,14 @@ async Task<bool> StickAktualisierenAsync(bool ohneRueckfrage, bool nurPlan)
         AnsiConsole.Write(tabelle);
         AnsiConsole.MarkupLine("Der Ordner [bold]protokolle[/] und eigene Dateien außerhalb von bin und module (sowie fremde Werkzeuge) bleiben unberührt.");
     }
+    var basis = false;
     if (plan.BasisVeraltet)
-        AnsiConsole.MarkupLine("[yellow]Hinweis:[/] Das Live-System (Basis) auf dem Stick ist älter als das gebaute Abbild. Es wird hier nicht aktualisiert; dafür den Stick neu erstellen (die Protokolle vorher sichern).");
+    {
+        AnsiConsole.MarkupLine("[yellow]Hinweis:[/] Das Live-System (Basis) auf dem Stick ist älter als das gebaute Abbild.");
+        basis = basisErzwingen || (!ohneRueckfrage && !nurPlan &&
+            AnsiConsole.Confirm("Auch das Live-System aktualisieren? (Dauert einige Minuten; Protokolle und Daten bleiben erhalten, der Stick darf dabei nicht abgezogen werden.)", true));
+        if (!basis && !nurPlan) AnsiConsole.MarkupLine("Das Live-System wird nicht aktualisiert (mit --basis oder auf Rückfrage möglich).");
+    }
 
     if (nurPlan)
     {
@@ -141,7 +147,7 @@ async Task<bool> StickAktualisierenAsync(bool ohneRueckfrage, bool nurPlan)
         return true;
     }
 
-    var e = await aktualisierer.AnwendenAsync(v, z => AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]"));
+    var e = await aktualisierer.AnwendenAsync(v, z => AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]"), basis);
     if (e.Erfolg) AnsiConsole.MarkupLine($"[green]{Markup.Escape(e.Meldung)}[/]");
     else Fehler(e.Meldung);
     return e.Erfolg;

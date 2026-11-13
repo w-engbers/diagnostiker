@@ -121,6 +121,19 @@ public static class Aktualisierung
         File.Move(zwischen, altDatei, overwrite: true);
     }
 
+    /// <summary>Trägt in der stick.json des Sticks den Stand der Basis aus dem neuen Stand ein (nach einem erfolgreichen Basis-Update).</summary>
+    public static void BasisUebernehmen(string stick, string staging)
+    {
+        var neu = JsonNode.Parse(File.ReadAllText(Path.Combine(staging, StickDatei)))!;
+        var datei = Path.Combine(stick, StickDatei);
+        var alt = JsonNode.Parse(File.ReadAllText(datei))!.AsObject();
+        alt["teile"]!["basis"] = neu["teile"]!["basis"]!.DeepClone();
+        alt["basisAktualisiert"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'");
+        var zwischen = datei + ".neu";
+        File.WriteAllText(zwischen, alt.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
+        File.Move(zwischen, datei, overwrite: true);
+    }
+
     static bool BasisVeraltet(string stick, string staging)
     {
         try
