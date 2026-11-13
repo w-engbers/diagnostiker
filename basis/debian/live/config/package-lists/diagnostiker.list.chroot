@@ -1,0 +1,69 @@
+# Basis / Sprache
+locales
+console-setup
+kbd
+sudo
+less
+nano
+tmux
+
+# Hardware-Inventar
+dmidecode
+lshw
+hwinfo
+inxi
+pciutils
+usbutils
+lm-sensors
+edid-decode
+upower
+acpi
+cpuid
+
+# Datenträger
+smartmontools
+nvme-cli
+hdparm
+gdisk
+parted
+e2fsprogs
+ntfs-3g
+exfatprogs
+dosfstools
+efibootmgr
+testdisk
+fio
+lsscsi
+
+# Speicher / CPU
+memtester
+stress-ng
+
+# Netzwerk, WLAN, Bluetooth
+network-manager
+wpasupplicant
+iw
+rfkill
+wireless-tools
+bluez
+ethtool
+iproute2
+iputils-ping
+dnsutils
+iperf3
+traceroute
+curl
+
+# Firmware (non-free-firmware) für WLAN, Bluetooth, Netzwerk, Grafik
+firmware-linux
+firmware-iwlwifi
+firmware-realtek
+firmware-atheros
+firmware-brcm80211
+firmware-misc-nonfree
+firmware-amd-graphics
+firmware-intel-graphics
+firmware-sof-signed
+
+# Laufzeit-Abhängigkeit des Diagnostiker-Programms
+libicu76

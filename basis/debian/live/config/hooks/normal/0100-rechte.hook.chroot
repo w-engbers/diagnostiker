@@ -1,0 +1,6 @@
+#!/bin/sh
+# Ausführbar machen; Root-Login auf tty1 ohne Passwort ist beabsichtigt (Prüfstick, kein Server).
+set -e
+chmod +x /usr/local/bin/diagnostiker-start
+chmod +x /opt/diagnostiker/bin/Diagnostiker.Tui 2>/dev/null || true
+systemctl enable NetworkManager 2>/dev/null || true

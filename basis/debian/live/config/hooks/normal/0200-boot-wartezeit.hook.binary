@@ -1,0 +1,22 @@
+#!/bin/sh
+# Bootmenüs sollen nach wenigen Sekunden von selbst starten (BIOS: isolinux, UEFI: GRUB).
+# Standard der live-build-Vorlagen wäre "warten, bis jemand eine Taste drückt".
+#
+# Hinweis: live-build führt Binary-Hooks nach "cd binary" aus. Der Hook funktioniert aber auch,
+# wenn er aus dem Build-Wurzelverzeichnis gestartet wird, und scheitert laut statt still.
+set -e
+
+if [ -d isolinux ] && [ -d boot/grub ]; then B=.
+elif [ -d binary/isolinux ] && [ -d binary/boot/grub ]; then B=binary
+else
+    echo "FEHLER: binary-Verzeichnis nicht gefunden (cwd: $(pwd))" >&2
+    exit 1
+fi
+
+sed -i 's/^timeout 0/timeout 50/' "$B/isolinux/isolinux.cfg"
+printf '\nset timeout=5\n' >> "$B/boot/grub/config.cfg"
+
+# Kontrolle: beide Änderungen müssen wirklich vorhanden sein.
+grep -q '^timeout 50' "$B/isolinux/isolinux.cfg" || { echo "FEHLER: isolinux-Timeout nicht gesetzt" >&2; exit 1; }
+grep -q '^set timeout=5' "$B/boot/grub/config.cfg" || { echo "FEHLER: GRUB-Timeout nicht gesetzt" >&2; exit 1; }
+echo "Boot-Wartezeit gesetzt (isolinux 5 s, GRUB 5 s)."
