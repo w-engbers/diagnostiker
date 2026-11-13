@@ -8,6 +8,9 @@ public sealed class ModulAusfuehrer(string stickWurzel)
     /// <summary>Verzeichnis der mitgelieferten Tools für das laufende System.</summary>
     public string WerkzeugVerzeichnis { get; } = Path.Combine(stickWurzel, "werkzeuge", Plattform.WerkzeugOrdner);
 
+    /// <summary>Ordner der Prüfmodule auf dem Stick (Platzhalter <c>{module}</c>): längere Skripte liegen als Datei neben dem Manifest.</summary>
+    public string ModulVerzeichnis { get; } = Path.Combine(stickWurzel, "module");
+
     public bool IstAnwendbar(ModulDefinition m) =>
         m.Schritte.Any(s => OsPasst(s));
 
@@ -44,7 +47,7 @@ public sealed class ModulAusfuehrer(string stickWurzel)
 
         string Ersetzen(string text)
         {
-            text = text.Replace("{werkzeuge}", WerkzeugVerzeichnis);
+            text = text.Replace("{werkzeuge}", WerkzeugVerzeichnis).Replace("{module}", ModulVerzeichnis);
             foreach (var (k, v) in parameter) text = text.Replace("{" + k + "}", v);
             return text;
         }

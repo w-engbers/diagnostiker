@@ -1,0 +1,122 @@
+{
+  "id": "boot.startfaehigkeit",
+  "titel": "Startfähigkeit der Datenträger (Bootloader, Partitionen, Systemdateien)",
+  "gruppe": "Booten",
+  "beschreibung": "Prüft nur lesend, ob die eingebauten Datenträger startfähig aussehen: Partitionstabelle, EFI-Partition und Bootmanager, Windows-Systemdateien, Linux-Kernel und fstab, Boot-Menü der Firmware, passender Startmodus (UEFI/BIOS), BitLocker. Läuft im Live-System des Sticks.",
+  "schnellpruefung": false,
+  "schritte": [
+    {
+      "titel": "Startfähigkeit (Windows)",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output 'NUR_LINUX'"
+      ],
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Dieses Modul prüft die Datenträger von außen: den Stick im betroffenen Rechner starten (Live-System)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Startfähigkeit",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "{module}/boot/startfaehigkeit.sh"
+      ],
+      "admin": true,
+      "timeoutSekunden": 300,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Dieses Modul prüft die Datenträger von außen: den Stick im betroffenen Rechner starten (Live-System)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}

@@ -19,7 +19,7 @@ docs/                   Architektur und weitere Dokumentation
 ## Prüfmodul-Manifest (Kurzreferenz)
 
 - `schritte[]` mit `os` (`windows`/`linux`/leer), `befehl`, `argumente`, `admin`, `timeoutSekunden`, `kodierung`, `hinweis`.
-- Platzhalter: `{werkzeuge}` (Werkzeugordner des laufenden Systems) und `{parametername}` (Dialogfragen aus `parameter[]`).
+- Platzhalter: `{module}` (Ordner `module/` des Sticks, für längere Skripte als Datei neben dem Manifest), `{werkzeuge}` (Werkzeugordner des laufenden Systems) und `{parametername}` (Dialogfragen aus `parameter[]`).
 - `regeln[]`: `typ` = `enthaelt` | `regex` | `exitcode` | `exitcodeNicht`; `status` = `Ok`/`Info`/`Warnung`/`Fehler`; `meldung` = Klartext.
   Der schlimmste Status aller zutreffenden Regeln gewinnt, ohne Regel gilt `Info`.
 - `zeigeAusgabe: true` übernimmt die Ausgabezeilen ins Ergebnis.
