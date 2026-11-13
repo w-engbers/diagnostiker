@@ -1,0 +1,83 @@
+{
+  "id": "netz.wlan",
+  "titel": "WLAN-Diagnose (Dienst, Adapter, Funk, Netze in Reichweite)",
+  "gruppe": "Netzwerk",
+  "beschreibung": "Zeigt, warum ein WLAN nicht verbindet: läuft der Netzwerkdienst, verwaltet er den Adapter, ist das Funkmodul an und sieht der Scan Netze. Nur lesend; die Netzliste enthält die Namen der WLANs in Reichweite.",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "WLAN-Diagnose",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "command -v nmcli >/dev/null 2>&1 || { echo NMCLI_FEHLT; exit 0; }\necho \"NetworkManager: $(systemctl is-active NetworkManager 2>&1)\"\nw=$(nmcli -t -f DEVICE,TYPE,STATE dev 2>/dev/null | awk -F: '$2==\"wifi\" {print $1 \":\" $3}')\n[ -n \"$w\" ] || { echo KEIN_WLAN_ADAPTER; exit 0; }\necho \"$w\" | while IFS=: read -r dev st; do echo \"WLAN-Adapter $dev: Zustand $st\"; done\necho \"WLAN-Radio: $(nmcli radio wifi 2>&1)\"\necho \"Länderkennung: $(iw reg get 2>/dev/null | awk '/^country/ {sub(\":\",\"\",$2); print $2; exit}')\"\nliste=$(nmcli -t -f SSID,CHAN,SIGNAL,SECURITY dev wifi list --rescan yes 2>/dev/null)\nn=$(printf '%s' \"$liste\" | grep -c .)\necho \"Gefundene WLAN-Netze: $n\"\nprintf '%s\\n' \"$liste\" | head -8 | awk -F: 'NF>1 {printf \"  Netz \\\"%s\\\" Kanal %s Signal %s%% %s\\n\", $1, $2, $3, $4}'\ndmesg 2>/dev/null | grep -iE 'ath9k|ath10k|iwlwifi|brcm|rtl8|wlan|cfg80211' | tail -6 | sed 's/^/  Kernel: /'\nexit 0"
+      ],
+      "timeoutSekunden": 60,
+      "zeigeAusgabe": true,
+      "hinweis": "nmcli (NetworkManager) ist nicht installiert.",
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NMCLI_FEHLT",
+          "status": "Info",
+          "meldung": "Nicht prüfbar: NetworkManager (nmcli) ist auf diesem System nicht installiert."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_WLAN_ADAPTER",
+          "status": "Info",
+          "meldung": "Kein WLAN-Adapter gefunden (Treiber/Firmware fehlt, Gerät defekt, im BIOS abgeschaltet oder gar keiner eingebaut)."
+        },
+        {
+          "typ": "regex",
+          "wert": "^NetworkManager: (inactive|failed|activating|unknown)",
+          "status": "Fehler",
+          "meldung": "Der Netzwerkdienst NetworkManager läuft nicht – ohne ihn kommt keine WLAN-Verbindung zustande."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Zustand unmanaged",
+          "status": "Fehler",
+          "meldung": "Der WLAN-Adapter wird vom NetworkManager nicht verwaltet (anderes Netzwerkprogramm oder Konfiguration blockiert ihn)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Zustand unavailable",
+          "status": "Warnung",
+          "meldung": "Der WLAN-Adapter ist nicht verfügbar (Funk ausgeschaltet, Treiber oder Firmware fehlt)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "WLAN-Radio: disabled",
+          "status": "Warnung",
+          "meldung": "Das WLAN-Funkmodul ist ausgeschaltet (Flugmodus oder Funktaste)."
+        },
+        {
+          "typ": "regex",
+          "wert": "Gefundene WLAN-Netze: 0\\s*$",
+          "status": "Warnung",
+          "meldung": "Es wurde kein einziges WLAN in Reichweite gefunden: Antenne, Funk-Schalter, Länderkennung oder Treiber prüfen."
+        },
+        {
+          "typ": "regex",
+          "wert": "Länderkennung:\\s*(00)?\\s*$",
+          "status": "Info",
+          "meldung": "Es ist keine Länderkennung gesetzt (Welt-Einstellung): Die Kanäle 12 und 13 und manche 5-GHz-Kanäle werden dann eventuell nicht gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Zustand connected",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "regex",
+          "wert": "Gefundene WLAN-Netze: [1-9]",
+          "status": "Ok",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
