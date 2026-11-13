@@ -1,0 +1,13 @@
+bin/
+obj/
+*.user
+.vs/
+build/
+out/
+cache/
+*.iso
+*.img
+*.vhd
+*.lock.local
+*.conf
+!*.conf.beispiel

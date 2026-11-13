@@ -1,0 +1,28 @@
+{
+  "id": "inventar.system",
+  "titel": "Systemübersicht (Hersteller, BIOS, CPU, RAM)",
+  "gruppe": "Inventar",
+  "beschreibung": "Grunddaten des Rechners für das Protokoll.",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "Hardware-Grunddaten",
+      "zeigeAusgabe": true,
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $cs=Get-CimInstance Win32_ComputerSystem; $b=Get-CimInstance Win32_BIOS; $c=Get-CimInstance Win32_Processor|Select -First 1; $o=Get-CimInstance Win32_OperatingSystem; 'Hersteller: '+$cs.Manufacturer; 'Modell: '+$cs.Model; 'Seriennummer: '+$b.SerialNumber; 'BIOS: '+$b.SMBIOSBIOSVersion+' vom '+$b.ReleaseDate.ToString('yyyy-MM-dd'); 'CPU: '+$c.Name+' ('+$c.NumberOfCores+' Kerne)'; 'RAM: '+[math]::Round($cs.TotalPhysicalMemory/1GB,1)+' GB'; 'System: '+$o.Caption+' '+$o.Version"
+      ]
+    },
+    {
+      "titel": "Hardware-Grunddaten",
+      "zeigeAusgabe": true,
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": ["-c",
+        "d=/sys/class/dmi/id; echo \"Hersteller: $(cat $d/sys_vendor 2>/dev/null)\"; echo \"Modell: $(cat $d/product_name 2>/dev/null)\"; echo \"BIOS: $(cat $d/bios_version 2>/dev/null) vom $(cat $d/bios_date 2>/dev/null)\"; echo \"CPU: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | sed 's/^ *//') ($(grep -c '^processor' /proc/cpuinfo) Threads)\"; echo \"RAM: $(awk '/MemTotal/ {printf \"%.1f GB\", $2/1048576}' /proc/meminfo)\"; echo \"Kernel: $(uname -sr)\""
+      ]
+    }
+  ]
+}

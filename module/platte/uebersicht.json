@@ -1,0 +1,46 @@
+{
+  "id": "platte.uebersicht",
+  "titel": "Datenträger: Erkennung, Gesundheit, freier Platz, Lesefehler",
+  "gruppe": "Datenträger",
+  "beschreibung": "Werden die Platten erkannt, meldet das System Defekte, ist noch Platz frei?",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "Physische Datenträger und Laufwerke",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $d=@(Get-PhysicalDisk); if($d.Count -eq 0){'KEINE_PLATTE'}; foreach($x in $d){ 'DISK|'+$x.FriendlyName+'|'+$x.MediaType+'|'+[math]::Round($x.Size/1GB)+' GB|Health='+$x.HealthStatus+'|Betrieb='+$x.OperationalStatus }; foreach($v in Get-Volume|Where-Object{$_.DriveLetter -and $_.Size -gt 0}){ $f=[math]::Round(100*$v.SizeRemaining/$v.Size); 'VOL|'+$v.DriveLetter+':|'+$v.FileSystem+'|frei '+$f+'%'; if($f -lt 10){'VOLL='+$v.DriveLetter} }"
+      ],
+      "regeln": [
+        { "typ": "enthaelt", "wert": "KEINE_PLATTE", "status": "Fehler", "meldung": "Es wurde kein Datenträger erkannt (Kabel, Controller-Modus/RAID-Einstellung im BIOS?)." },
+        { "typ": "enthaelt", "wert": "Health=Healthy", "status": "Ok", "meldung": "Windows meldet Datenträger als gesund." },
+        { "typ": "enthaelt", "wert": "Health=Warning", "status": "Warnung", "meldung": "Windows meldet eine Warnung zu einem Datenträger." },
+        { "typ": "enthaelt", "wert": "Health=Unhealthy", "status": "Fehler", "meldung": "Windows meldet einen defekten Datenträger." },
+        { "typ": "regex", "wert": "^VOLL=", "status": "Warnung", "meldung": "Ein Laufwerk hat weniger als 10 % freien Platz." }
+      ]
+    },
+    {
+      "titel": "Erkannte Datenträger",
+      "os": "linux",
+      "befehl": "lsblk",
+      "argumente": ["-o", "NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT,MODEL"],
+      "regeln": [
+        { "typ": "regex", "wert": "^\\S*(sd|nvme|vd|mmcblk)\\S*\\s+\\S+\\s+disk", "status": "Ok", "meldung": "Mindestens ein Datenträger wird erkannt." },
+        { "typ": "exitcodeNicht", "wert": "0", "status": "Fehler", "meldung": "Datenträgerliste nicht lesbar." }
+      ]
+    },
+    {
+      "titel": "Lesefehler im Kernel-Protokoll",
+      "os": "linux",
+      "befehl": "sh",
+      "admin": true,
+      "argumente": ["-c", "dmesg | grep -iE 'I/O error|failed command|hard resetting link|medium error|unrecovered read'"],
+      "regeln": [
+        { "typ": "exitcode", "wert": "1", "status": "Ok", "meldung": "Keine Lese-/Schreibfehler im Kernel-Protokoll." },
+        { "typ": "exitcode", "wert": "0", "status": "Fehler", "meldung": "Das Kernel-Protokoll enthält Datenträger-Fehler (siehe Rohausgabe) – Platte oder Kabel verdächtig." }
+      ]
+    }
+  ]
+}

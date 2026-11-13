@@ -1,0 +1,48 @@
+{
+  "id": "boot.firmware",
+  "titel": "Startmodus (UEFI/BIOS, Secure Boot, Boot-Einträge)",
+  "gruppe": "Booten",
+  "beschreibung": "Zeigt, wie der Rechner gerade gestartet wurde und ob die Firmware Boot-Einträge kennt.",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "Startmodus",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+        "$p='HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecureBoot\\State'; if(Test-Path $p){'BOOTMODUS=UEFI'; 'SECUREBOOT='+(Get-ItemProperty $p).UEFISecureBootEnabled}else{'BOOTMODUS=BIOS'}"
+      ],
+      "regeln": [
+        { "typ": "enthaelt", "wert": "BOOTMODUS=UEFI", "status": "Ok", "meldung": "Start im UEFI-Modus." },
+        { "typ": "enthaelt", "wert": "BOOTMODUS=BIOS", "status": "Info", "meldung": "Start im alten BIOS-/CSM-Modus (Legacy)." },
+        { "typ": "enthaelt", "wert": "SECUREBOOT=0", "status": "Info", "meldung": "Secure Boot ist ausgeschaltet." },
+        { "typ": "enthaelt", "wert": "SECUREBOOT=1", "status": "Info", "meldung": "Secure Boot ist eingeschaltet." }
+      ]
+    },
+    {
+      "titel": "Startmodus",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": ["-c", "if [ -d /sys/firmware/efi ]; then echo BOOTMODUS=UEFI; f=/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c; [ -r $f ] && echo SECUREBOOT=$(od -An -tu1 $f | awk '{print $5}'); else echo BOOTMODUS=BIOS; fi"],
+      "regeln": [
+        { "typ": "enthaelt", "wert": "BOOTMODUS=UEFI", "status": "Ok", "meldung": "Start im UEFI-Modus." },
+        { "typ": "enthaelt", "wert": "BOOTMODUS=BIOS", "status": "Info", "meldung": "Start im alten BIOS-/CSM-Modus (Legacy)." },
+        { "typ": "enthaelt", "wert": "SECUREBOOT=0", "status": "Info", "meldung": "Secure Boot ist ausgeschaltet." },
+        { "typ": "enthaelt", "wert": "SECUREBOOT=1", "status": "Info", "meldung": "Secure Boot ist eingeschaltet." }
+      ]
+    },
+    {
+      "titel": "UEFI-Boot-Einträge der Firmware",
+      "os": "linux",
+      "befehl": "efibootmgr",
+      "admin": true,
+      "hinweis": "efibootmgr fehlt oder der Rechner startet nicht per UEFI.",
+      "regeln": [
+        { "typ": "regex", "wert": "^Boot\\d{4}\\*", "status": "Ok", "meldung": "Aktive Boot-Einträge vorhanden." },
+        { "typ": "enthaelt", "wert": "No BootOrder", "status": "Warnung", "meldung": "Boot-Reihenfolge ist leer – der Rechner findet evtl. kein Startmedium." },
+        { "typ": "exitcodeNicht", "wert": "0", "status": "Warnung", "meldung": "Boot-Einträge nicht lesbar." }
+      ]
+    }
+  ]
+}

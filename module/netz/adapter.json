@@ -1,0 +1,49 @@
+{
+  "id": "netz.adapter",
+  "titel": "Netzwerkadapter (Ethernet/WLAN erkannt, verbunden, nicht gesperrt)",
+  "gruppe": "Netzwerk",
+  "beschreibung": "Sind Adapter vorhanden und aktiv? Ist der Funk per Schalter/Flugmodus gesperrt?",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "Adapter",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $a=@(Get-NetAdapter -Physical); if($a.Count -eq 0){'KEIN_ADAPTER'}; foreach($x in $a){ 'ADAPTER|'+$x.Name+'|'+$x.InterfaceDescription+'|Status='+$x.Status+'|'+$x.LinkSpeed }; if(@($a|Where-Object{$_.Status -eq 'Disabled'}).Count -gt 0){'DEAKTIVIERT'}"
+      ],
+      "regeln": [
+        { "typ": "enthaelt", "wert": "KEIN_ADAPTER", "status": "Fehler", "meldung": "Kein physischer Netzwerkadapter erkannt – Treiber fehlt, Gerät defekt oder im BIOS abgeschaltet." },
+        { "typ": "enthaelt", "wert": "Status=Up", "status": "Ok", "meldung": "Mindestens ein Adapter ist verbunden." },
+        { "typ": "enthaelt", "wert": "DEAKTIVIERT", "status": "Warnung", "meldung": "Ein Adapter ist in Windows deaktiviert." },
+        { "typ": "enthaelt", "wert": "Status=Disconnected", "status": "Info", "meldung": "Ein Adapter ist nicht verbunden (Kabel/WLAN-Anmeldung?)." }
+      ]
+    },
+    {
+      "titel": "Adapter",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": ["-c",
+        "n=0; for i in /sys/class/net/*; do b=$(basename $i); [ \"$b\" = lo ] && continue; n=$((n+1)); echo \"ADAPTER|$b|operstate=$(cat $i/operstate 2>/dev/null)|treiber=$(basename $(readlink $i/device/driver 2>/dev/null) 2>/dev/null)\"; done; [ $n -eq 0 ] && echo KEIN_ADAPTER; exit 0"
+      ],
+      "regeln": [
+        { "typ": "enthaelt", "wert": "KEIN_ADAPTER", "status": "Fehler", "meldung": "Kein Netzwerkadapter erkannt – Treiber/Firmware fehlt, Gerät defekt oder im BIOS abgeschaltet." },
+        { "typ": "enthaelt", "wert": "operstate=up", "status": "Ok", "meldung": "Mindestens ein Adapter ist verbunden." },
+        { "typ": "enthaelt", "wert": "operstate=down", "status": "Info", "meldung": "Ein Adapter ist nicht verbunden (Kabel/WLAN-Anmeldung?)." }
+      ]
+    },
+    {
+      "titel": "Funk-Sperre (WLAN/Bluetooth)",
+      "os": "linux",
+      "befehl": "rfkill",
+      "argumente": ["list"],
+      "hinweis": "rfkill nicht verfügbar.",
+      "regeln": [
+        { "typ": "enthaelt", "wert": "Hard blocked: yes", "status": "Warnung", "meldung": "Funk ist per Hardware-Schalter/Tastenkombination gesperrt." },
+        { "typ": "enthaelt", "wert": "Soft blocked: yes", "status": "Warnung", "meldung": "Funk ist per Software gesperrt (Flugmodus)." },
+        { "typ": "regex", "wert": "^\\d+: .*\\n\\s+Soft blocked: no\\n\\s+Hard blocked: no", "status": "Ok", "meldung": "Funkgeräte sind nicht gesperrt." }
+      ]
+    }
+  ]
+}

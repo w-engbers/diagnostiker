@@ -1,0 +1,41 @@
+{
+  "id": "platte.smart",
+  "titel": "Platten-Selbstdiagnose (SMART)",
+  "gruppe": "Datenträger",
+  "beschreibung": "Liest die SMART-Werte eines Datenträgers (nur lesend). Hinter RAID-Controllern oft nicht möglich.",
+  "parameter": [
+    { "name": "geraet", "frage": "Welcher Datenträger? (Linux z. B. /dev/sda oder /dev/nvme0; Windows /dev/sda für die erste Platte)", "standard": "/dev/sda" }
+  ],
+  "schritte": [
+    {
+      "titel": "SMART-Gesamtbewertung und Fehlerzähler",
+      "os": "windows",
+      "befehl": "{werkzeuge}\\smartctl.exe",
+      "argumente": ["-H", "-A", "{geraet}"],
+      "admin": true,
+      "hinweis": "smartctl.exe muss unter werkzeuge\\win-x64 auf dem Stick liegen.",
+      "regeln": [
+        { "typ": "enthaelt", "wert": "PASSED", "status": "Ok", "meldung": "SMART-Selbstbewertung: in Ordnung." },
+        { "typ": "enthaelt", "wert": "FAILED", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
+        { "typ": "regex", "wert": "^\\s*(5|196|197|198)\\s+\\S+.*\\s[1-9]\\d*\\s*$", "status": "Warnung", "meldung": "Umgelagerte oder defekte Sektoren gefunden – Platte beobachten, Datensicherung prüfen." },
+        { "typ": "enthaelt", "wert": "Permission denied", "status": "Warnung", "meldung": "Kein Zugriff auf den Datenträger." },
+        { "typ": "enthaelt", "wert": "Unable to detect device type", "status": "Warnung", "meldung": "SMART nicht abfragbar (RAID/USB-Gehäuse?)." }
+      ]
+    },
+    {
+      "titel": "SMART-Gesamtbewertung und Fehlerzähler",
+      "os": "linux",
+      "befehl": "smartctl",
+      "argumente": ["-H", "-A", "{geraet}"],
+      "admin": true,
+      "hinweis": "smartmontools ist nicht installiert (im Live-System enthalten).",
+      "regeln": [
+        { "typ": "enthaelt", "wert": "PASSED", "status": "Ok", "meldung": "SMART-Selbstbewertung: in Ordnung." },
+        { "typ": "enthaelt", "wert": "FAILED", "status": "Fehler", "meldung": "SMART meldet: Datenträger fällt aus – sofort Daten sichern!" },
+        { "typ": "regex", "wert": "^\\s*(5|196|197|198)\\s+\\S+.*\\s[1-9]\\d*\\s*$", "status": "Warnung", "meldung": "Umgelagerte oder defekte Sektoren gefunden – Platte beobachten, Datensicherung prüfen." },
+        { "typ": "regex", "wert": "Media and Data Integrity Errors:\\s+[1-9]", "status": "Warnung", "meldung": "NVMe meldet Integritätsfehler." },
+        { "typ": "enthaelt", "wert": "Unable to detect device type", "status": "Warnung", "meldung": "SMART nicht abfragbar (RAID/USB-Gehäuse?)." }
+      ]
+    }
+  ]
+}
