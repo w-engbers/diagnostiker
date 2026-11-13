@@ -5,6 +5,7 @@ namespace Diagnostiker.Tests;
 
 /// <summary>Prüft das SMART-Modul mit einer Attrappe von smartctl: Die Shell-Logik des Manifests läuft wirklich,
 /// aber ohne echte Datenträger. Der Fehlalarm "WHEN_FAILED" aus der Spaltenüberschrift fiel am 13.11.2026 an echten Platten auf.</summary>
+[System.Runtime.Versioning.SupportedOSPlatform("linux")]
 public class SmartModulTests : IDisposable
 {
     readonly string _ordner = Directory.CreateTempSubdirectory("smarttest").FullName;

@@ -15,13 +15,14 @@ public static partial class Sicherheit
     public const long MaxGroesse = 512L << 30;   // größer ist fast sicher eine Datenplatte, kein Stick
 
     // Nur hier eingehängte Laufwerke gelten als Wechselmedium (Desktop hängt Sticks dort ein).
-    static readonly string[] ErlaubteOrte = ["/media/", "/run/media/", "/mnt/"];
+    static readonly IReadOnlyList<string> ErlaubteOrte = ["/media/", "/run/media/", "/mnt/"];
 
     [GeneratedRegex(@"^/dev/[a-z][a-z0-9]*$")]
     private static partial Regex GueltigerPfad();
 
-    public static Pruefung Pruefe(Laufwerk l, long min = MinGroesse, long max = MaxGroesse)
+    public static Pruefung Pruefe(Laufwerk l, long min = MinGroesse, long max = MaxGroesse, IReadOnlyList<string>? erlaubteOrte = null)
     {
+        var orte = erlaubteOrte ?? ErlaubteOrte;
         var gruende = new List<string>();
         var hinweise = new List<string>();
 
@@ -41,7 +42,7 @@ public static partial class Sicherheit
 
         foreach (var ort in l.AlleEinhaengepunkte.Distinct())
         {
-            if (!ErlaubterOrt(ort))
+            if (!ErlaubterOrt(ort, orte))
                 gruende.Add($"Wird vom System benutzt (eingehängt unter {ort}).");
         }
 
@@ -63,8 +64,8 @@ public static partial class Sicherheit
         return new Pruefung(gruende.Count == 0, gruende, hinweise);
     }
 
-    static bool ErlaubterOrt(string ort) =>
-        !ort.Contains("..") && ErlaubteOrte.Any(p => ort.StartsWith(p, StringComparison.Ordinal));
+    static bool ErlaubterOrt(string ort, IReadOnlyList<string> orte) =>
+        !ort.Contains("..") && orte.Any(p => ort.StartsWith(p, StringComparison.Ordinal));
 
     static readonly CultureInfo Deutsch = CultureInfo.GetCultureInfo("de-DE");
 
