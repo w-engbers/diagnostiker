@@ -67,14 +67,13 @@ public static partial class Sicherheit
     static bool ErlaubterOrt(string ort, IReadOnlyList<string> orte) =>
         !ort.Contains("..") && orte.Any(p => ort.StartsWith(p, StringComparison.Ordinal));
 
-    static readonly CultureInfo Deutsch = CultureInfo.GetCultureInfo("de-DE");
-
     public static string Groesse(long bytes)
     {
         string[] einheiten = ["B", "KiB", "MiB", "GiB", "TiB"];
         double wert = bytes; var i = 0;
         while (wert >= 1024 && i < einheiten.Length - 1) { wert /= 1024; i++; }
-        return string.Create(Deutsch, $"{wert:0.#} {einheiten[i]}");
+        // Kultur-unabhängig mit deutschem Komma: Die Kultur "de-DE" gibt es im "invarianten" Modus (Live-System) nicht.
+        return wert.ToString("0.#", CultureInfo.InvariantCulture).Replace('.', ',') + " " + einheiten[i];
     }
 }
 

@@ -91,7 +91,8 @@ public sealed class ModulAusfuehrer(string stickWurzel)
     {
         var stati = new List<Status>();
         if (s.ZeigeAusgabe)
-            res.Meldungen.AddRange(res.Ausgabe.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            res.Meldungen.AddRange(res.Ausgabe.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(z => !IstMarkierung(z)));   // reine Markierungen (KEIN_ADAPTER_BT) sind nur für die Regeln da
         foreach (var r in s.Regeln)
         {
             if (!Trifft(r, res)) continue;
@@ -101,6 +102,10 @@ public sealed class ModulAusfuehrer(string stickWurzel)
 
         res.Status = stati.Count == 0 ? Status.Info : ZusammenfassenStatus(stati);
     }
+
+    /// <summary>Eine Zeile aus Großbuchstaben, Ziffern und mindestens einem Unterstrich ist eine Markierung für die Regeln, kein Text für Menschen.</summary>
+    public static bool IstMarkierung(string zeile) => MarkierungsMuster.IsMatch(zeile);
+    private static readonly Regex MarkierungsMuster = new(@"^[A-Z][A-Z0-9]*(_[A-Z0-9]+)+$", RegexOptions.Compiled);
 
     private static bool Trifft(Regel r, SchrittErgebnis res) => r.Typ.ToLowerInvariant() switch
     {

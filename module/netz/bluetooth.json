@@ -1,0 +1,113 @@
+{
+  "id": "netz.bluetooth",
+  "titel": "Bluetooth-Adapter (Controller, Treiber, Firmware, Sperre, Dienst)",
+  "gruppe": "Netzwerk",
+  "beschreibung": "Prüft, ob ein Bluetooth-Adapter da ist und arbeitet. Nur lesend; es wird nicht nach Geräten gesucht (dafür die Bluetooth-Suche).",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "Bluetooth-Adapter",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "SYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nn=0\nfor c in \"$SYSFS\"/class/bluetooth/hci*; do\n  [ -e \"$c\" ] || continue\n  case \"$(basename \"$c\")\" in *:*) continue ;; esac\n  n=$((n+1))\n  echo \"BT-Controller $(basename \"$c\"): Treiber $(basename \"$(readlink \"$c/device/driver\" 2>/dev/null)\" 2>/dev/null)\"\ndone\nusb=0\nfor i in \"$SYSFS\"/bus/usb/devices/*; do\n  [ \"$(cat \"$i/bInterfaceClass\" 2>/dev/null)\" = e0 ] && [ \"$(cat \"$i/bInterfaceSubClass\" 2>/dev/null)\" = 01 ] && usb=1\ndone\nif [ $n -eq 0 ]; then\n  if [ $usb -eq 1 ]; then echo BT_HARDWARE_OHNE_CONTROLLER; else echo KEIN_ADAPTER_BT; fi\nfi\nfw=$(dmesg 2>/dev/null | grep -iE 'bluetooth|btusb|btintel|btrtl|btbcm|hci[0-9]' | grep -iE 'fail|error|timed out|not found' | tail -4)\nif [ -n \"$fw\" ]; then echo FIRMWARE_FEHLER; echo \"$fw\" | sed 's/^/  Kernel: /'; fi\nsp=$(rfkill list bluetooth 2>/dev/null)\necho \"$sp\" | grep -q 'Soft blocked: yes' && echo SPERRE_SOFT\necho \"$sp\" | grep -q 'Hard blocked: yes' && echo SPERRE_HARD\nif [ $n -gt 0 ]; then\n  echo \"Dienst bluetooth: $(systemctl is-active bluetooth 2>&1)\"\n  p=$(bluetoothctl show 2>/dev/null | awk '/Powered:/ {print $2; exit}')\n  echo \"Controller eingeschaltet: ${p:-unbekannt}\"\nfi\nexit 0"
+      ],
+      "timeoutSekunden": 30,
+      "zeigeAusgabe": true,
+      "hinweis": "Bluetooth-Werkzeuge fehlen.",
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "BT_HARDWARE_OHNE_CONTROLLER",
+          "status": "Fehler",
+          "meldung": "Ein Bluetooth-Gerät steckt am USB-Anschluss, aber es gibt keinen Controller: Treiber oder Firmware fehlt oder der Adapter ist defekt."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_ADAPTER_BT",
+          "status": "Info",
+          "meldung": "Kein Bluetooth-Adapter gefunden (nicht eingebaut oder im BIOS abgeschaltet)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "FIRMWARE_FEHLER",
+          "status": "Warnung",
+          "meldung": "Das Kernel-Protokoll meldet Fehler beim Bluetooth-Adapter (oft fehlende Firmware oder Zeitüberschreitung beim Start)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SPERRE_SOFT",
+          "status": "Warnung",
+          "meldung": "Bluetooth ist per Software gesperrt (Flugmodus)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SPERRE_HARD",
+          "status": "Warnung",
+          "meldung": "Bluetooth ist per Hardware-Schalter oder Tastenkombination gesperrt."
+        },
+        {
+          "typ": "regex",
+          "wert": "Dienst bluetooth: (inactive|failed|unknown)",
+          "status": "Fehler",
+          "meldung": "Der Bluetooth-Dienst läuft nicht, obwohl ein Adapter da ist."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Controller eingeschaltet: no",
+          "status": "Warnung",
+          "meldung": "Der Bluetooth-Controller ist ausgeschaltet (einschalten, z. B. mit „bluetoothctl power on“)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Controller eingeschaltet: unbekannt",
+          "status": "Info",
+          "meldung": "Der Zustand des Controllers ließ sich nicht lesen."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Controller eingeschaltet: yes",
+          "status": "Ok",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Bluetooth-Adapter",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $d=@(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue); if($d.Count -eq 0){'KEIN_ADAPTER_BT'}else{ $d|ForEach-Object{'BT-Gerät: '+$_.FriendlyName+' (Status '+$_.Status+')'}; if($d|Where-Object{$_.Status -ne 'OK'}){'BT_GERAET_FEHLER'} }"
+      ],
+      "timeoutSekunden": 30,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_ADAPTER_BT",
+          "status": "Info",
+          "meldung": "Kein Bluetooth-Adapter gefunden (nicht eingebaut, abgeschaltet oder Treiber fehlt)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "BT_GERAET_FEHLER",
+          "status": "Warnung",
+          "meldung": "Ein Bluetooth-Gerät meldet im Gerätemanager einen Fehlerstatus (Treiber prüfen)."
+        },
+        {
+          "typ": "regex",
+          "wert": "Status OK\\)",
+          "status": "Ok",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}

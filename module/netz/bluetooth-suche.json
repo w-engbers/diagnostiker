@@ -1,0 +1,53 @@
+{
+  "id": "netz.bluetooth-suche",
+  "titel": "Bluetooth-Suche (Geräte in der Nähe, 10 Sekunden)",
+  "gruppe": "Netzwerk",
+  "beschreibung": "Sucht 10 Sekunden lang nach sichtbaren Bluetooth-Geräten und zeigt, ob der Adapter etwas empfängt. Ein zu prüfendes Gerät sollte sichtbar sein (Kopplungsmodus). Der Bericht enthält die Namen der Geräte in Reichweite und die ersten drei Bytes ihrer Adresse (Hersteller), nicht die volle Adresse.",
+  "schnellpruefung": false,
+  "schritte": [
+    {
+      "titel": "Bluetooth-Suche",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "command -v bluetoothctl >/dev/null 2>&1 || { echo BLUETOOTHCTL_FEHLT; exit 0; }\nSYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nls \"$SYSFS\"/class/bluetooth/hci* >/dev/null 2>&1 || { echo KEIN_CONTROLLER; exit 0; }\nout=$(bluetoothctl --timeout 10 scan on 2>&1)\nif echo \"$out\" | grep -q 'Failed to start discovery'; then echo SUCHE_NICHT_MOEGLICH; exit 0; fi\nliste=$(echo \"$out\" | grep '\\[NEW\\] Device' | sed 's/.*\\[NEW\\] Device //')\nn=$(printf '%s' \"$liste\" | grep -c .)\necho \"Gefundene Bluetooth-Geräte: $n\"\nprintf '%s\\n' \"$liste\" | head -10 | awk 'NF {addr=$1; $1=\"\"; sub(/^ /,\"\"); split(addr,a,\":\"); printf \"  Gerät \\\"%s\\\" (Hersteller-Kennung %s:%s:%s)\\n\", $0, a[1], a[2], a[3]}'\nexit 0"
+      ],
+      "timeoutSekunden": 40,
+      "zeigeAusgabe": true,
+      "hinweis": "bluetoothctl (BlueZ) ist nicht installiert.",
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "BLUETOOTHCTL_FEHLT",
+          "status": "Uebersprungen",
+          "meldung": "bluetoothctl ist nicht installiert."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_CONTROLLER",
+          "status": "Info",
+          "meldung": "Kein Bluetooth-Controller vorhanden: nichts zu suchen."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SUCHE_NICHT_MOEGLICH",
+          "status": "Warnung",
+          "meldung": "Die Suche lässt sich nicht starten (Controller ausgeschaltet oder gesperrt, Dienst läuft nicht)."
+        },
+        {
+          "typ": "regex",
+          "wert": "Gefundene Bluetooth-Geräte: 0\\s*$",
+          "status": "Info",
+          "meldung": "Es wurde kein Gerät gefunden. Ist ein Gerät in der Nähe sichtbar (Kopplungsmodus)?"
+        },
+        {
+          "typ": "regex",
+          "wert": "Gefundene Bluetooth-Geräte: [1-9]",
+          "status": "Ok",
+          "meldung": "Der Adapter empfängt Geräte in der Nähe."
+        }
+      ]
+    }
+  ]
+}

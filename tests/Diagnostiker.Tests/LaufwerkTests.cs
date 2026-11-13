@@ -184,6 +184,14 @@ public class LaufwerkTests
     }
 
     [Fact]
+    public void Testlauf_ist_im_invarianten_Kulturmodus_wie_das_Live_System()
+    {
+        // Das Live-System setzt DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1; dort gibt es keine Kultur "de-DE".
+        // Das Testprojekt läuft deshalb immer so (runtimeconfig.template.json), damit kulturabhängiger Code auffällt.
+        Assert.True(AppContext.TryGetSwitch("System.Globalization.Invariant", out var invariant) && invariant);
+    }
+
+    [Fact]
     public void Groessenangabe_ist_lesbar()
     {
         Assert.Equal("16 GiB", Sicherheit.Groesse(16 * GiB));

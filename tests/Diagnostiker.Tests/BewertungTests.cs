@@ -35,6 +35,24 @@ public class BewertungTests
         Assert.Equal(Status.Uebersprungen, ModulAusfuehrer.ZusammenfassenStatus([Status.Uebersprungen]));
 
     [Fact]
+    public void ZeigeAusgabe_blendet_reine_Markierungszeilen_aus_die_Regeln_sehen_sie_trotzdem()
+    {
+        var def = new SchrittDefinition
+        {
+            ZeigeAusgabe = true,
+            Regeln = [new Regel { Wert = "KEIN_ADAPTER_BT", Status = Status.Info, Meldung = "Kein Adapter." }],
+        };
+        var res = new SchrittErgebnis { Ausgabe = "KEIN_ADAPTER_BT\nHersteller: Test\nPASSED\nSMART_OK_1\n", ExitCode = 0 };
+        ModulAusfuehrer.Bewerten(def, res);
+
+        Assert.DoesNotContain("KEIN_ADAPTER_BT", res.Meldungen);
+        Assert.DoesNotContain("SMART_OK_1", res.Meldungen);
+        Assert.Contains("Hersteller: Test", res.Meldungen);
+        Assert.Contains("PASSED", res.Meldungen);             // ohne Unterstrich: ein normales Wort, bleibt sichtbar
+        Assert.Contains("Kein Adapter.", res.Meldungen);      // die Regel hat die Markierung gesehen
+    }
+
+    [Fact]
     public void Exitcode_Regeln()
     {
         Assert.Equal(Status.Ok, Bewerte("", 1, new Regel { Typ = "exitcode", Wert = "1", Status = Status.Ok }).Status);
