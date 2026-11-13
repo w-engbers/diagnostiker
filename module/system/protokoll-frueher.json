@@ -1,0 +1,172 @@
+{
+  "id": "system.protokoll-frueher",
+  "titel": "Protokoll früherer Starts (Linux-Installation des Prüflings)",
+  "gruppe": "System",
+  "beschreibung": "Hängt die Linux-Laufwerke des Rechners nur lesend ein (ohne Journal-Wiedergabe) und wertet das Protokoll der letzten beiden Starts aus: Abstürze, Datenträger- und Dateisystemfehler, Ausschalten ohne Herunterfahren. Verschlüsselte Laufwerke werden übersprungen.",
+  "schnellpruefung": false,
+  "schritte": [
+    {
+      "titel": "Protokoll früherer Starts (Windows)",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output 'Unter Windows deckt die Prüfung Fehler im Systemprotokoll bereits die letzten 14 Tage (mehrere Starts) ab.'; Write-Output 'NUR_LINUX'"
+      ],
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen fremder Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_LINUX_GEFUNDEN",
+          "status": "Info",
+          "meldung": "Keine Linux-Installation auf den Laufwerken gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Keine Fehlermeldungen",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Kernel-Absturz",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Datenträger-Fehler",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Dateisystem-Fehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Hardware-Fehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Unerwartetes Ausschalten",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Speichermangel",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Sonstige Fehlermeldungen",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Protokoll früherer Starts (Linux)",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "platte='device offline error|I/O error|Buffer I/O|blk_update_request|ata[0-9.]+: .*(exception|error|failed)|medium error|unrecovered read|critical medium|nvme[0-9]*: .*(timeout|error|reset)'\nfs='EXT4-fs.*(error|corrupt)|XFS.*(corrupt|error)|BTRFS.*error|ntfs.*(error|corrupt|failed)|FAT-fs.*(error|corrupt)|filesystem error'\nhw='Machine check|mce:|Hardware Error|AER:|PCIe Bus Error|EDAC|temperature above threshold|overheat'\nmem='Out of memory|oom-kill'\nabsturz='Kernel panic|Oops:|Call Trace|BUG:'\nzaehle() { n=$(printf '%s\\n' \"$log\" | grep -Eic \"$1\"); echo \"${n:-0}\"; }\nbewerte() { # $1 Beschriftung; Protokollzeilen in $log, $ende = Zeilen eines regulären Herunterfahrens (-1 = unbekannt)\n  alle=$(printf '%s\\n' \"$log\" | grep -c . || true); [ -n \"$log\" ] || alle=0\n  a=$(zaehle \"$platte\"); b=$(zaehle \"$fs\"); c=$(zaehle \"$hw\"); d=$(zaehle \"$mem\"); k=$(zaehle \"$absturz\")\n  [ \"$ende\" = 0 ] && echo \"$1: Unerwartetes Ausschalten – der Start endete ohne reguläres Herunterfahren (Absturz, Stromverlust oder Ausschalten per Taste).\"\n  [ \"$k\" -gt 0 ] && echo \"$1: Kernel-Absturz im Protokoll: $k Meldung(en).\"\n  [ \"$a\" -gt 0 ] && echo \"$1: Datenträger-Fehler im Protokoll: $a Meldung(en) – Platte, Kabel oder Anschluss prüfen.\"\n  [ \"$b\" -gt 0 ] && echo \"$1: Dateisystem-Fehler im Protokoll: $b Meldung(en).\"\n  [ \"$c\" -gt 0 ] && echo \"$1: Hardware-Fehler im Protokoll: $c Meldung(en) (Prozessor, PCIe, Speicher oder Temperatur).\"\n  [ \"$d\" -gt 0 ] && echo \"$1: Speichermangel im Protokoll: $d Meldung(en).\"\n  bekannt=$(zaehle \"$platte|$fs|$hw|$mem|$absturz\"); rest=$((alle - bekannt))\n  [ \"$rest\" -gt 0 ] && echo \"$1: Sonstige Fehlermeldungen: $rest (meist harmlos).\"\n  if [ \"$alle\" -eq 0 ] && [ \"$ende\" != 0 ]; then echo \"$1: Keine Fehlermeldungen.\"; fi\n  printf '%s\\n' \"$log\" | grep -Ei \"$platte|$fs|$hw|$mem|$absturz\" | head -3 | cut -c1-200 | sed 's/^/    /'\n}\nanalysiere() { # $1 Wurzel des fremden Systems, $2 Gerät\n  w=$1\n  name=$(sed -n 's/^PRETTY_NAME=//p' \"$w/etc/os-release\" 2>/dev/null | head -1 | tr -d '\"')\n  [ -d \"$w/var/log\" ] || return 0\n  gefunden=$((gefunden+1))\n  echo \"System: ${name:-Linux} ($2)\"\n  j=\"$w/var/log/journal\"\n  if [ -d \"$j\" ] && command -v journalctl >/dev/null 2>&1 && [ \"$(journalctl --directory=\"$j\" --list-boots --no-pager -q 2>/dev/null | grep -c .)\" -gt 0 ]; then\n    for b in 0 -1; do\n      kopf=$(journalctl --directory=\"$j\" --list-boots --no-pager -q 2>/dev/null | awk -v b=\"$b\" '$1==b {print}' | head -1)\n      [ -n \"$kopf\" ] || continue\n      [ \"$b\" = 0 ] && L=\"Letzter Start\" || L=\"Start davor\"\n      log=$(journalctl --directory=\"$j\" -b \"$b\" -p err --no-pager -q 2>/dev/null)\n      ende=$(journalctl --directory=\"$j\" -b \"$b\" -n 40 --no-pager -q 2>/dev/null | grep -Eic 'systemd-shutdown|Reached target.*(Shutdown|Power-Off|Reboot)|Shutting down|Journal stopped')\n      echo \"$L: $(printf '%s' \"$kopf\" | cut -c1-80)\"\n      bewerte \"  $L\"\n    done\n  else\n    f=\n    for k in \"$w/var/log/syslog\" \"$w/var/log/messages\" \"$w/var/log/kern.log\"; do [ -r \"$k\" ] && f=$k && break; done\n    if [ -z \"$f\" ]; then echo \"  Kein lesbares Protokoll gefunden.\"; return 0; fi\n    log=$(tail -n 5000 \"$f\" 2>/dev/null | grep -Ei \"$platte|$fs|$hw|$mem|$absturz\"); ende=-1\n    echo \"  Klassisches Syslog ($(basename \"$f\")), letzte 5000 Zeilen, ohne Trennung der Starts.\"\n    bewerte \"  Syslog\"\n  fi\n}\ngefunden=0\nif [ -n \"$DIAGNOSTIKER_PRUEFLING\" ]; then\n  analysiere \"$DIAGNOSTIKER_PRUEFLING\" Test\nelse\n  [ \"$(id -u)\" = 0 ] || { echo KEINE_RECHTE; exit 0; }\n  tmp=$(mktemp -d)\n  for d in $(lsblk -rpno NAME,FSTYPE,TYPE 2>/dev/null | awk '($3==\"part\"||$3==\"lvm\") && $2 ~ /^(ext2|ext3|ext4|xfs|btrfs|f2fs|crypto_LUKS)$/ {print $1\":\"$2}'); do\n    dev=${d%%:*}; typ=${d##*:}\n    if [ \"$typ\" = crypto_LUKS ]; then echo \"Verschlüsseltes Laufwerk $dev übersprungen (nicht ohne Kennwort lesbar).\"; continue; fi\n    mp=$(findmnt -rno TARGET -S \"$dev\" 2>/dev/null | head -1)\n    if [ -n \"$mp\" ]; then analysiere \"$mp\" \"$dev\"; continue; fi\n    case \"$typ\" in ext*) o=ro,noload ;; xfs) o=ro,norecovery,nouuid ;; *) o=ro ;; esac\n    if mount -o \"$o\" \"$dev\" \"$tmp\" 2>/dev/null; then analysiere \"$tmp\" \"$dev\"; umount \"$tmp\"; fi\n  done\n  rmdir \"$tmp\" 2>/dev/null\nfi\n[ \"$gefunden\" -eq 0 ] && echo \"KEIN_LINUX_GEFUNDEN\"\nexit 0"
+      ],
+      "admin": true,
+      "timeoutSekunden": 180,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen fremder Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEIN_LINUX_GEFUNDEN",
+          "status": "Info",
+          "meldung": "Keine Linux-Installation auf den Laufwerken gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Keine Fehlermeldungen",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Kernel-Absturz",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Datenträger-Fehler",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Dateisystem-Fehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Hardware-Fehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Unerwartetes Ausschalten",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Speichermangel",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Sonstige Fehlermeldungen",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
