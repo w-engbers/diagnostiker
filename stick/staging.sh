@@ -31,6 +31,10 @@ cp "$TMP/linux-x64/Diagnostiker.Tui"   "$STAGING/bin/linux-x64/Diagnostiker"
 cp -a "$WURZEL/module" "$STAGING/module"
 cp "$HIER"/vorlage/* "$STAGING/"
 
+# Fremdwerkzeuge (fest gepinnt, geprüft): werkzeuge/holen.sh legt sie unter cache/werkzeuge ab.
+"$WURZEL/werkzeuge/holen.sh"
+cp -a "$WURZEL/cache/werkzeuge/." "$STAGING/werkzeuge/"
+
 # stick.json: Stand der Teile mit Prüfsummen (Grundlage für das spätere Aktualisieren).
 summe() { sha256sum "$1" | cut -d' ' -f1; }
 VERSION=$(git -C "$WURZEL" describe --always --dirty 2>/dev/null || echo unbekannt)
@@ -45,7 +49,8 @@ cat > "$STAGING/stick.json" <<EOF
                   "win-x64":   "$(summe "$STAGING/bin/win-x64/Diagnostiker.exe")",
                   "linux-x64": "$(summe "$STAGING/bin/linux-x64/Diagnostiker")" },
     "module":   { "sha256": "$MODULSUMME" },
-    "werkzeuge": {}
+    "werkzeuge": { "smartmontools": { "version": "$(python3 -I -c "import json; print(next(w['version'] for w in json.load(open('$WURZEL/werkzeuge/werkzeuge.lock.json'))['werkzeuge'] if w['name']=='smartmontools'))")",
+                                     "win-x64": "$(summe "$STAGING/werkzeuge/win-x64/smartctl.exe")" } }
   }
 }
 EOF

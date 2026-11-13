@@ -19,13 +19,13 @@ public sealed record AktualisierungsErgebnis(bool Erfolg, string Meldung);
 
 /// <summary>
 /// Vergleicht die Datenpartition eines Sticks mit dem frisch zusammengestellten Stand (Staging) und kopiert nur das Geänderte.
-/// Der Ordner <c>protokolle/</c> wird nie angefasst. Gelöscht wird nur in <c>bin/</c> und <c>module/</c> (Dateien, die es im neuen Stand
+/// Der Ordner <c>protokolle/</c> wird nie angefasst. Gelöscht wird nur in <c>bin/</c>, <c>module/</c> und den von uns verwalteten Ordnern <c>werkzeuge/lizenzen</c> und <c>werkzeuge/quellen</c> (Dateien, die es im neuen Stand
 /// nicht mehr gibt); eigene Dateien des Benutzers an anderer Stelle bleiben unberührt.
 /// </summary>
 public static class Aktualisierung
 {
     static readonly string[] Geschuetzt = ["protokolle"];            // oberste Ordner, die nie berührt werden
-    static readonly string[] Aufraeumbar = ["bin", "module"];         // nur dort werden überflüssige Dateien entfernt
+    static readonly string[] Aufraeumbar = ["bin", "module", "werkzeuge/lizenzen", "werkzeuge/quellen"]; // nur dort werden überflüssige Dateien entfernt
     const string StickDatei = "stick.json";
 
     public static AktualisierungsPlan Planen(string stickOrdner, string stagingOrdner)

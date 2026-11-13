@@ -54,6 +54,13 @@ Angeboten werden nur USB-Laufwerke zwischen 4 und 512 GiB, die das System nicht 
 eingetippt werden, vor jedem Schritt wird erneut geprüft, und `stick/stick-erstellen.sh` prüft das Ziel im Container noch einmal selbst.
 Tests: `tests/stick/laufwerk-test.sh` (Loop-Gerät statt echtem Stick) und `dotnet test`.
 
+## Fremdwerkzeuge (Windows)
+
+`werkzeuge/werkzeuge.lock.json` legt fest, welche Fremdprogramme der Stick mitbringt (zurzeit `smartctl.exe` aus smartmontools 7.5, GPL-2.0).
+`werkzeuge/holen.sh` lädt sie, prüft GPG-Signatur und feste SHA-256-Summen und legt sie unter `cache/werkzeuge/` ab; `stick/staging.sh` ruft es auf.
+Auf dem Stick liegen sie unter `werkzeuge/win-x64/`, dazu Lizenztext und Quelltext unter `werkzeuge/lizenzen/` und `werkzeuge/quellen/`.
+Neue Versionen werden nie automatisch übernommen: neuen Eintrag mit geprüften Summen in die Sperrdatei schreiben.
+
 ## Bauen und Testen
 
 Voraussetzung: .NET-SDK 10.

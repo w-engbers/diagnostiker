@@ -9,7 +9,7 @@ RUN apt-get update \
         live-build debootstrap squashfs-tools xorriso mtools dosfstools \
         syslinux syslinux-common isolinux grub-pc-bin grub-efi-amd64-bin \
         ca-certificates gnupg cpio zstd \
-        gdisk exfatprogs util-linux \
+        gdisk exfatprogs util-linux 7zip \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /bau

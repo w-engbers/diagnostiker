@@ -7,6 +7,74 @@
   "schritte": [
     {
       "titel": "SMART aller Datenträger",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $t='{werkzeuge}\\smartctl.exe'; if(-not (Test-Path $t)){'SMARTCTL_FEHLT'; exit 0}; $n=0; foreach($z in @(& $t --scan 2>$null)){ $d=($z -split ' ')[0]; if(-not $d){continue}; $n++; $modell=''; foreach($l in @(& $t -i $d 2>&1)){ if(\"$l\" -match '^(Device Model|Model Number|Product):\\s*(.+)$'){$modell=$Matches[2]; break} }; $gr='?'; if($d -match '^/dev/sd([a-z])$'){ try{ $g=Get-Disk -Number ([int][char]$Matches[1]-97) -ErrorAction Stop; $gr=[string][math]::Round($g.Size/1GB)+'G' }catch{} }; if(-not $modell){$modell='unbekanntes Modell'}; $name=$d+' ('+$modell+', '+$gr+')'; $o=(@(& $t -H -A $d 2>&1) | ForEach-Object{\"$_\"}) -join \"`n\"; if($o -match 'Unable to detect device type|Permission denied|SMART support is: Unavailable'){$name+': SMART nicht abfragbar (RAID, USB-Gehäuse oder Stick)'} elseif($o -match 'overall-health self-assessment test result: FAILED|Health Status: (FAILURE|FAILED)'){$name+': SMART meldet AUSFALL – sofort Daten sichern!'} elseif($o -match '(?m)^\\s*(5|196|197|198)\\s+\\S+.*\\s[1-9][0-9]*\\s*$'){$name+': Umgelagerte oder defekte Sektoren – Platte beobachten, Datensicherung prüfen'} elseif($o -match 'Media and Data Integrity Errors:\\s+[1-9]'){$name+': NVMe meldet Integritätsfehler'} elseif($o -match 'PASSED|Health Status: OK'){$name+': SMART in Ordnung'} else {$name+': SMART-Ergebnis unklar'} }; if($n -eq 0){'KEINE_DATENTRAEGER'}"
+      ],
+      "admin": true,
+      "timeoutSekunden": 120,
+      "zeigeAusgabe": true,
+      "hinweis": "smartctl.exe fehlt im Ordner werkzeuge\\win-x64 auf dem Stick (Stick aktualisieren).",
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "SMARTCTL_FEHLT",
+          "status": "Uebersprungen",
+          "meldung": "smartctl ist nicht installiert."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SMART in Ordnung",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "AUSFALL",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "defekte Sektoren",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Integritätsfehler",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "nicht abfragbar",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "unklar",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "SMART aller Datenträger",
       "os": "linux",
       "befehl": "sh",
       "argumente": [

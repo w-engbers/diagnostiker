@@ -119,7 +119,7 @@ async Task<bool> StickAktualisierenAsync(bool ohneRueckfrage, bool nurPlan)
             tabelle.AddRow(a.Art switch { AenderungsArt.Neu => "[green]neu[/]", AenderungsArt.Geaendert => "[yellow]geändert[/]", _ => "[red]entfernt[/]" },
                 Markup.Escape(a.Pfad), a.Art == AenderungsArt.Entfernt ? "" : Sicherheit.Groesse(a.Groesse));
         AnsiConsole.Write(tabelle);
-        AnsiConsole.MarkupLine("Der Ordner [bold]protokolle[/] und eigene Dateien außerhalb von bin und module bleiben unberührt.");
+        AnsiConsole.MarkupLine("Der Ordner [bold]protokolle[/] und eigene Dateien außerhalb von bin und module (sowie fremde Werkzeuge) bleiben unberührt.");
     }
     if (plan.BasisVeraltet)
         AnsiConsole.MarkupLine("[yellow]Hinweis:[/] Das Live-System (Basis) auf dem Stick ist älter als das gebaute Abbild. Es wird hier nicht aktualisiert; dafür den Stick neu erstellen (die Protokolle vorher sichern).");

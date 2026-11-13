@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "hinweis": "Feste Versionen der mitgelieferten Fremdwerkzeuge. Neue Version = neuen Eintrag mit geprüften Prüfsummen eintragen, nie automatisch aktualisieren.",
+  "werkzeuge": [
+    {
+      "name": "smartmontools",
+      "version": "7.5",
+      "plattform": "win-x64",
+      "lizenz": "GPL-2.0-or-later",
+      "projekt": "https://www.smartmontools.org/",
+      "installer": {
+        "url": "https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_5/smartmontools-7.5.win32-setup.exe",
+        "signatur": "https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_5/smartmontools-7.5.win32-setup.exe.asc",
+        "sha256": "896337fcc253220614cf8cdbd5cf2321c5aa326a37a04160a672a281e6104c70"
+      },
+      "quelltext": {
+        "url": "https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_5/smartmontools-7.5.tar.gz",
+        "signatur": "https://github.com/smartmontools/smartmontools/releases/download/RELEASE_7_5/smartmontools-7.5.tar.gz.asc",
+        "sha256": "690b83ca331378da9ea0d9d61008c4b22dde391387b9bbad7f29387f2595f76e"
+      },
+      "signaturschluessel": "0C9577FD2C4CFCB4B9A599640A30812EFF3AEFF5",
+      "dateien": [
+        { "aus": "bin/smartctl.exe", "nach": "werkzeuge/win-x64/smartctl.exe", "sha256": "b5db94e5082c042be44994b7a4fa8f7b5c8e713b2ab1c9a560d8f7a7995ea27d" },
+        { "aus": "bin/drivedb.h",    "nach": "werkzeuge/win-x64/drivedb.h",    "sha256": "dd39c6a520d38895da61923fe26fe7c9c5eb3f42325f2e4477a06ed7a61966d0" },
+        { "aus": "doc/COPYING.txt",  "nach": "werkzeuge/lizenzen/smartmontools-COPYING.txt" }
+      ]
+    }
+  ]
+}
