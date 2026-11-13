@@ -35,10 +35,12 @@
     {
       "titel": "UEFI-Boot-Einträge der Firmware",
       "os": "linux",
-      "befehl": "efibootmgr",
+      "befehl": "sh",
+      "argumente": ["-c", "if [ -d /sys/firmware/efi ]; then efibootmgr; else echo NICHT_UEFI; fi"],
       "admin": true,
       "hinweis": "efibootmgr fehlt oder der Rechner startet nicht per UEFI.",
       "regeln": [
+        { "typ": "enthaelt", "wert": "NICHT_UEFI", "status": "Info", "meldung": "Nicht zutreffend: Der Rechner wurde im BIOS-Modus gestartet, es gibt keine UEFI-Boot-Einträge." },
         { "typ": "regex", "wert": "^Boot\\d{4}\\*", "status": "Ok", "meldung": "Aktive Boot-Einträge vorhanden." },
         { "typ": "enthaelt", "wert": "No BootOrder", "status": "Warnung", "meldung": "Boot-Reihenfolge ist leer – der Rechner findet evtl. kein Startmedium." },
         { "typ": "exitcodeNicht", "wert": "0", "status": "Warnung", "meldung": "Boot-Einträge nicht lesbar." }

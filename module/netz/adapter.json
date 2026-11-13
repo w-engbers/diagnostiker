@@ -25,10 +25,11 @@
       "os": "linux",
       "befehl": "sh",
       "argumente": ["-c",
-        "n=0; for i in /sys/class/net/*; do b=$(basename $i); [ \"$b\" = lo ] && continue; n=$((n+1)); echo \"ADAPTER|$b|operstate=$(cat $i/operstate 2>/dev/null)|treiber=$(basename $(readlink $i/device/driver 2>/dev/null) 2>/dev/null)\"; done; [ $n -eq 0 ] && echo KEIN_ADAPTER; exit 0"
+        "n=0; for i in /sys/class/net/*; do b=$(basename $i); [ \"$b\" = lo ] && continue; n=$((n+1)); echo \"ADAPTER|$b|operstate=$(cat $i/operstate 2>/dev/null)|treiber=$(basename $(readlink $i/device/driver 2>/dev/null) 2>/dev/null)\"; done; [ $n -eq 0 ] && echo KEIN_ADAPTER; [ $n -gt 0 ] && ! grep -qx up /sys/class/net/*/operstate 2>/dev/null && echo NIRGENDS_VERBUNDEN; exit 0"
       ],
       "regeln": [
         { "typ": "enthaelt", "wert": "KEIN_ADAPTER", "status": "Fehler", "meldung": "Kein Netzwerkadapter erkannt – Treiber/Firmware fehlt, Gerät defekt oder im BIOS abgeschaltet." },
+        { "typ": "enthaelt", "wert": "NIRGENDS_VERBUNDEN", "status": "Warnung", "meldung": "Kein Netzwerkadapter ist verbunden: Kabel einstecken oder WLAN einrichten. Die weiteren Netzwerkprüfungen sind solange nicht aussagekräftig." },
         { "typ": "enthaelt", "wert": "operstate=up", "status": "Ok", "meldung": "Mindestens ein Adapter ist verbunden." },
         { "typ": "enthaelt", "wert": "operstate=down", "status": "Info", "meldung": "Ein Adapter ist nicht verbunden (Kabel/WLAN-Anmeldung?)." }
       ]

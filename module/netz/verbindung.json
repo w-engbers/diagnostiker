@@ -28,9 +28,10 @@
       "befehl": "sh",
       "timeoutSekunden": 30,
       "argumente": ["-c",
-        "gw=$(ip route | awk '/^default/{print $3; exit}'); dev=$(ip route | awk '/^default/{print $5; exit}'); if [ -z \"$gw\" ]; then ip -4 -br addr | grep -q ' UP .*169\\.254\\.' && echo APIPA; echo KEIN_GATEWAY; else if ip -4 addr show dev \"$dev\" | grep -q 'inet 169\\.254\\.'; then echo APIPA; elif ip -4 addr | grep -q 'inet 169\\.254\\.'; then echo APIPA_NEBENADAPTER; fi; echo GATEWAY=$gw; if ping -c 2 -W 2 $gw >/dev/null 2>&1; then echo GATEWAY_ERREICHBAR; else echo GATEWAY_STUMM; fi; fi; exit 0"
+        "grep -qx up /sys/class/net/*/operstate 2>/dev/null || { echo KEIN_LINK; exit 0; }; gw=$(ip route | awk '/^default/{print $3; exit}'); dev=$(ip route | awk '/^default/{print $5; exit}'); if [ -z \"$gw\" ]; then ip -4 -br addr | grep -q ' UP .*169\\.254\\.' && echo APIPA; echo KEIN_GATEWAY; else if ip -4 addr show dev \"$dev\" | grep -q 'inet 169\\.254\\.'; then echo APIPA; elif ip -4 addr | grep -q 'inet 169\\.254\\.'; then echo APIPA_NEBENADAPTER; fi; echo GATEWAY=$gw; if ping -c 2 -W 2 $gw >/dev/null 2>&1; then echo GATEWAY_ERREICHBAR; else echo GATEWAY_STUMM; fi; fi; exit 0"
       ],
       "regeln": [
+        { "typ": "enthaelt", "wert": "KEIN_LINK", "status": "Uebersprungen", "meldung": "Übersprungen: Kein Netzwerkadapter ist verbunden (Kabel einstecken oder WLAN einrichten)." },
         { "typ": "regex", "wert": "^APIPA\\s*$", "status": "Fehler", "meldung": "Adresse 169.254.x.x: Der Rechner hat keine Adresse vom Router (DHCP) bekommen." },
         { "typ": "enthaelt", "wert": "APIPA_NEBENADAPTER", "status": "Info", "meldung": "Ein unbenutzter Zusatzadapter (z. B. virtuell/Hotspot) hat eine 169.254-Adresse – unproblematisch." },
         { "typ": "enthaelt", "wert": "KEIN_GATEWAY", "status": "Fehler", "meldung": "Keine Standardroute – der Rechner kennt keinen Router." },
@@ -57,8 +58,9 @@
       "os": "linux",
       "befehl": "sh",
       "timeoutSekunden": 30,
-      "argumente": ["-c", "if ping -c 2 -W 2 1.1.1.1 >/dev/null 2>&1; then echo INTERNET_IP_OK; else echo INTERNET_IP_FEHLT; fi"],
+      "argumente": ["-c", "grep -qx up /sys/class/net/*/operstate 2>/dev/null || { echo KEIN_LINK; exit 0; }; if ping -c 2 -W 2 1.1.1.1 >/dev/null 2>&1; then echo INTERNET_IP_OK; else echo INTERNET_IP_FEHLT; fi"],
       "regeln": [
+        { "typ": "enthaelt", "wert": "KEIN_LINK", "status": "Uebersprungen", "meldung": "Übersprungen: Kein Netzwerkadapter ist verbunden (Kabel einstecken oder WLAN einrichten)." },
         { "typ": "enthaelt", "wert": "INTERNET_IP_OK", "status": "Ok", "meldung": "Internet ist per IP-Adresse erreichbar." },
         { "typ": "enthaelt", "wert": "INTERNET_IP_FEHLT", "status": "Fehler", "meldung": "Internet nicht erreichbar (Leitung, Router oder Sperre)." }
       ]
@@ -82,8 +84,9 @@
       "os": "linux",
       "befehl": "sh",
       "timeoutSekunden": 30,
-      "argumente": ["-c", "if getent hosts example.org >/dev/null 2>&1; then echo DNS_OK; else echo DNS_FEHLER; fi"],
+      "argumente": ["-c", "grep -qx up /sys/class/net/*/operstate 2>/dev/null || { echo KEIN_LINK; exit 0; }; if getent hosts example.org >/dev/null 2>&1; then echo DNS_OK; else echo DNS_FEHLER; fi"],
       "regeln": [
+        { "typ": "enthaelt", "wert": "KEIN_LINK", "status": "Uebersprungen", "meldung": "Übersprungen: Kein Netzwerkadapter ist verbunden (Kabel einstecken oder WLAN einrichten)." },
         { "typ": "enthaelt", "wert": "DNS_OK", "status": "Ok", "meldung": "Namensauflösung funktioniert." },
         { "typ": "enthaelt", "wert": "DNS_FEHLER", "status": "Fehler", "meldung": "Namen werden nicht aufgelöst (DNS-Server, Router oder Proxy/Hosts-Datei prüfen). Wenn 'Internet per IP' ok war, liegt es genau hieran." }
       ]
