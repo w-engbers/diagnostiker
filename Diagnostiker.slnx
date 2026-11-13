@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Diagnostiker.Kern/Diagnostiker.Kern.csproj" />
+    <Project Path="src/Diagnostiker.StickKern/Diagnostiker.StickKern.csproj" />
+    <Project Path="src/Diagnostiker.Stick/Diagnostiker.Stick.csproj" />
     <Project Path="src/Diagnostiker.Tui/Diagnostiker.Tui.csproj" />
   </Folder>
   <Folder Name="/tests/">
