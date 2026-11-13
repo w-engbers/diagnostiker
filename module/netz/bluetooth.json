@@ -84,7 +84,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $d=@(Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue); if($d.Count -eq 0){'KEIN_ADAPTER_BT'}else{ $d|ForEach-Object{'BT-Gerät: '+$_.FriendlyName+' (Status '+$_.Status+')'}; if($d|Where-Object{$_.Status -ne 'OK'}){'BT_GERAET_FEHLER'} }"
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $d=@(Get-PnpDevice -Class Bluetooth -PresentOnly -ErrorAction SilentlyContinue); if($d.Count -eq 0){'KEIN_ADAPTER_BT'}else{ $d|ForEach-Object{'BT-Gerät: '+$_.FriendlyName+' (Status '+$_.Status+')'}; if($d|Where-Object{$_.Status -in 'Error','Degraded'}){'BT_GERAET_FEHLER'} }"
       ],
       "timeoutSekunden": 30,
       "zeigeAusgabe": true,
