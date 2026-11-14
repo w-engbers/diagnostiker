@@ -68,7 +68,7 @@ bewerte_drucker() { # Anzeigename, Treibername, Anschluss
     name=$1; treiber=$2; port=$3
     case "$port" in
         USB*|usb*)                         art="USB" ;;
-        IP_*|[0-9]*.[0-9]*.[0-9]*.[0-9]*|TCP*|BRN*|WSD*|http*|ipp*) art="Netzwerk" ;;
+        IP_*|[0-9]*.[0-9]*.[0-9]*.[0-9]*|TCP*|BRN*|WSD*|http*|ipp*|Ne[0-9]*:*) art="Netzwerk" ;;
         *)                                 art="Anschluss $port" ;;
     esac
     # Windows-eigene Spezialtreiber (GDI/SPL/Host-based) gibt es unter Linux nicht
@@ -117,7 +117,7 @@ analysiere() { # Einhängepunkt, Gerät
     printf 'cd %s\nls\n' "$schluessel" | hivexsh -u "$hive" 2>"$tmp/hivefehler" | sed 's/\r$//' > "$tmp/druckernamen"
     gesamt=$(grep -c . "$tmp/druckernamen")
     if [ "$gesamt" = 0 ] && [ -s "$tmp/hivefehler" ]; then
-        warn "Die Drucker aus der Windows-Registrierung ($satz) lassen sich nicht lesen: $(head -1 "$tmp/hivefehler" | cut -c1-150)"
+        info "Der Schlüssel Control\\Print\\Printers ist in der Registrierung ($satz) nicht lesbar, es folgt ein Rückfall: $(head -1 "$tmp/hivefehler" | cut -c1-150)"
     fi
     anzahl=0; virtuelle=0
     while IFS= read -r name; do
@@ -129,6 +129,29 @@ analysiere() { # Einhängepunkt, Gerät
         anzahl=$((anzahl+1))
         bewerte_drucker "$name" "${treiber:-$name}" "$port"
     done < "$tmp/druckernamen"
+    if [ "$gesamt" = 0 ]; then
+        # Rückfall: Neuere Windows-Versionen führen die Warteschlangen nicht mehr (nur) unter Control\Print\Printers. Jedes Benutzerprofil
+        # hat eine Liste "Devices" (Name = winspool,Anschluss), die alle eingerichteten Drucker des Benutzers enthält.
+        printf 'cd \\%s\\Control\\Print\nls\n' "$satz" | hivexsh -u "$hive" 2>/dev/null | sed 's/\r$//' | tr '\n' ' ' > "$tmp/printunter"
+        info "Untergeordnete Schlüssel von Control\\Print: $(cat "$tmp/printunter")"
+        ud=$(pfad_ci "$w" users) || ud=""
+        if [ -n "$ud" ]; then
+            for prof in "$ud"/*/; do
+                nt=$(pfad_ci "$prof" ntuser.dat) || continue
+                printf 'cd \\Software\\Microsoft\\Windows NT\\CurrentVersion\\Devices\nlsval\n' | hivexsh -u "$nt" 2>/dev/null | sed 's/\r$//' \
+                    | sed -n 's/^"\(.*\)"="winspool,\(.*\)"$/\1|\2/p' >> "$tmp/devices"
+            done
+            sort -u "$tmp/devices" 2>/dev/null > "$tmp/devices2"
+            while IFS='|' read -r name port; do
+                [ -n "$name" ] || continue
+                gesamt=$((gesamt+1))
+                if virtuell "$name" "$port"; then virtuelle=$((virtuelle+1)); continue; fi
+                anzahl=$((anzahl+1))
+                bewerte_drucker "$name" "$name" "$port"
+            done < "$tmp/devices2"
+            [ "$gesamt" -gt 0 ] && info "Die Drucker stammen aus den Benutzerprofilen (Liste „Devices“ der Benutzer)."
+        fi
+    fi
     info "In der Windows-Registrierung ($satz) gelesen: $gesamt Druckerwarteschlange(n), davon $virtuelle virtuelle (PDF, XPS, Fax, OneNote …)."
 
     # Scanner: Bildverarbeitungsgeräte (Geräteklasse {6BDD1FC6-…}); jeder Eintrag 0000, 0001 … hat eine Beschreibung
@@ -176,7 +199,8 @@ if command -v lpinfo >/dev/null 2>&1; then
             else
                 case "$uri" in
                     dnssd://*_ipp*|ipp://*|ipps://*) info "Gefunden: $name ($art): spricht IPP und arbeitet meist ohne Treiber (AirPrint-ähnlich). Mit einer Testseite prüfen." ;;
-                    *) warn "Gefunden: $name ($art): kein Treiber in der Datenbank. Mit dem Drucker testen und auf openprinting.org nachsehen." ;;
+                    usb://*) warn "Gefunden: $name ($art): kein Treiber in der Datenbank. Mit dem Drucker testen und auf openprinting.org nachsehen." ;;
+                    *) info "Gefunden: $name ($art): kein eigener Treiber in der Datenbank, Netzwerkdrucker arbeiten aber meist treiberlos (IPP). Mit einer Testseite prüfen." ;;
                 esac
             fi
         done < "$tmp/geraete"

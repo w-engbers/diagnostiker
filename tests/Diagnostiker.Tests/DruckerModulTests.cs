@@ -16,6 +16,7 @@ public sealed class DruckerModulTests : IDisposable
     readonly List<string> _scanner = [];
     string _scanimage = "";
     bool _mitWindows = true;
+    readonly List<(string Name, string Port)> _nutzerDrucker = [];
 
     public DruckerModulTests()
     {
@@ -45,6 +46,11 @@ public sealed class DruckerModulTests : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(hive)!);
             File.WriteAllText(hive, "x");
             File.WriteAllText(Path.Combine(Fs, "sda2/Windows/System32/ntoskrnl.exe"), "x");
+            if (_nutzerDrucker.Count > 0)
+            {
+                Directory.CreateDirectory(Path.Combine(Fs, "sda2/Users/werner"));
+                File.WriteAllText(Path.Combine(Fs, "sda2/Users/werner/NTUSER.DAT"), "x");
+            }
         }
         File.WriteAllText(Path.Combine(_ordner, "lsblk.txt"), _mitWindows ? "NAME=\"/dev/sda2\" TYPE=\"part\" FSTYPE=\"ntfs\" SIZE=\"100G\"\n" : "NAME=\"/dev/sda2\" TYPE=\"part\" FSTYPE=\"ext4\" SIZE=\"100G\"\n");
         File.WriteAllText(Path.Combine(_ordner, "namen.txt"), string.Join('\n', _drucker.Select(d => d.Name)) + "\n");
@@ -53,6 +59,7 @@ public sealed class DruckerModulTests : IDisposable
         File.WriteAllText(Path.Combine(_ordner, "geraete.txt"), _geraete + "\n");
         File.WriteAllText(Path.Combine(_ordner, "scannerreg.txt"), string.Join('\n', _scanner.Select((n, i) => $"{i:D4}|{n}")) + "\n");
         File.WriteAllText(Path.Combine(_ordner, "scanimage.txt"), _scanimage);
+        File.WriteAllText(Path.Combine(_ordner, "devices.txt"), string.Join('\n', _nutzerDrucker.Select(d => $"\"{d.Name}\"=\"winspool,{d.Port}\"")) + "\n");
         Attrappe("scanimage", $"cat '{_ordner}/scanimage.txt'");
         Attrappe("systemctl", "exit 0");   // den Druckdienst startet der Test nicht wirklich
         Attrappe("sleep", "exit 0");
@@ -66,11 +73,14 @@ public sealed class DruckerModulTests : IDisposable
                 "cd "*) a=${z#cd }; case "$a" in \\*) pfad=$a ;; *) pfad="$pfad\\$a" ;; esac ;;
                 ls) case "$pfad" in
                       *6BDD1FC6*) cut -d'|' -f1 '{{_ordner}}/scannerreg.txt'; echo Properties ;;
+                      *\\Control\\Print) echo Environments ;;
+                      *\\Printers) [ -s '{{_ordner}}/namen.txt' ] && grep . '{{_ordner}}/namen.txt' || echo "hivexsh: cd: subkey 'Printers' not found" >&2 ;;
                       *) cat '{{_ordner}}/namen.txt' ;;
                     esac ;;
                 lsval)
                   case "$pfad" in
                     *\\Select) echo '"Current"=dword:00000001' ;;
+                    *\\Devices) cat '{{_ordner}}/devices.txt' ;;
                     *6BDD1FC6*\\[0-9][0-9][0-9][0-9]) nr="${pfad##*\\}"; grep "^$nr|" '{{_ordner}}/scannerreg.txt' | cut -d'|' -f2 | while read -r d; do printf '"DriverDesc"="%s"\n' "$d"; done ;;
                     *) n="${pfad##*\\}"; grep -F "$n|" '{{_ordner}}/werte.txt' | while IFS='|' read -r nn k w; do printf '"%s"="%s"\n' "$k" "$w"; done ;;
                   esac ;;
@@ -166,8 +176,21 @@ public sealed class DruckerModulTests : IDisposable
         var aus = Lauf();
         Assert.Contains("[OK] Gefunden: Brother HL-L2350DW series (USB): Treiber im Live-System vorhanden", aus);
         Assert.Contains("[INFO] Gefunden: Meine Tinte XP-999 (Netzwerk (Bonjour)): spricht IPP und arbeitet meist ohne Treiber", aus);
-        Assert.Contains("[WARNUNG] Gefunden: 192.168.5.5 (Netzwerk)", aus);
+        Assert.Contains("[INFO] Gefunden: 192.168.5.5 (Netzwerk): kein eigener Treiber", aus);
         Assert.Contains("Keine Windows-Installation", aus);
+    }
+
+    [Fact]
+    public void Fehlt_der_Schluessel_Printers_werden_die_Benutzerprofile_gelesen()
+    {
+        _nutzerDrucker.Add(("Brother HL-L2350DW series", "Ne01:"));
+        _nutzerDrucker.Add(("Microsoft Print to PDF", "PORTPROMPT:"));
+        var aus = Lauf();
+        Assert.Contains("Rückfall", aus);
+        Assert.Contains("[OK] Drucker „Brother HL-L2350DW series“ (Netzwerk): Treiber im Live-System vorhanden", aus);
+        Assert.Contains("gelesen: 2 Druckerwarteschlange(n), davon 1 virtuelle", aus);
+        Assert.DoesNotContain("Drucker „Microsoft Print to PDF“", aus);
+        Assert.DoesNotContain("[WARNUNG] Die Drucker aus der Windows-Registrierung", aus);
     }
 
     [Fact]
