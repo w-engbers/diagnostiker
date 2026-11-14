@@ -2,7 +2,8 @@
 # Sucht NUR LESEND nach Spuren, warum eine Windows-Installation des Rechners nicht startet (Linux-Live-System, Root nötig).
 # Gelesen werden Dateien der Windows-Partition, die ohne das Windows-Ereignisprotokoll Aufschluss geben:
 #   Startreparatur (SrtTrail.txt), Absturzabbilder (Minidump, MEMORY.DMP: Stoppcode), ausstehende Updates (pending.xml),
-#   Update- und Setup-Protokolle (CBS.log, setuperr.log), Startprotokoll (ntbtlog.txt) und der freie Platz.
+#   Update- und Setup-Protokolle (CBS.log, setuperr.log), Startprotokoll (ntbtlog.txt), der freie Platz und die Fehler im
+#   Windows-Ereignisprotokoll System.evtx (mit evtxexport aus libevtx-utils).
 # BitLocker-Laufwerke werden mit dem Wiederherstellungsschlüssel (Umgebungsvariable DIAGNOSTIKER_PARAM_SCHLUESSEL) nur lesend
 # geöffnet; der Schlüssel erscheint in keiner Ausgabe und wird nicht gespeichert, die Zuordnung wird danach wieder geschlossen.
 # Ausgabe: Zeilen mit [OK], [INFO], [WARNUNG] oder [FEHLER]; die Regeln des Manifests werten diese Marken aus.
@@ -82,6 +83,62 @@ stopp_name() {
         0x139) echo "KERNEL_SECURITY_CHECK_FAILURE|Beschädigte Datenstruktur im Kernel (Treiber oder Arbeitsspeicher)." ;;
         *)     echo "unbekannt|Stoppcode nachschlagen (Microsoft: „Bug Check Code Reference“)." ;;
     esac
+}
+
+# Fehler im Ereignisprotokoll System: Stand der letzten 14 Tage VOR dem letzten Eintrag im Protokoll (die Uhr des Prüfsystems
+# stimmt nicht unbedingt). Gelesen wird die XML-Ausgabe von evtxexport; je Ereignis zählen Zeit, Stufe, Quelle, Kennung, erster Datenwert.
+ereignisse() { # Ordner System32, Gerät
+    evtx=$(pfad_ci "$1" winevt logs system.evtx) || { info "Kein Ereignisprotokoll System.evtx auf $2 gefunden."; return 0; }
+    if ! command -v evtxexport >/dev/null 2>&1; then info "Ereignisprotokoll nicht ausgewertet: evtxexport (libevtx-utils) fehlt im Live-System."; return 0; fi
+    evtxexport -f xml "$evtx" 2>/dev/null | awk '
+        /<Provider Name=/ { match($0, /Name="[^"]*"/); prov = substr($0, RSTART + 6, RLENGTH - 7) }
+        /<EventID/        { x = $0; sub(/.*<EventID[^>]*>/, "", x); sub(/<\/EventID>.*/, "", x); id = x }
+        /<Level>/         { x = $0; sub(/.*<Level>/, "", x); sub(/<\/Level>.*/, "", x); lvl = x }
+        /<TimeCreated/    { match($0, /SystemTime="[^"]*"/); t = substr($0, RSTART + 12, RLENGTH - 13) }
+        /<Data[ >]/ && erster == "" { x = $0; sub(/<Data[^>]*>/, "", x); sub(/<\/Data>.*/, "", x); if (x != "") erster = x }
+        /<\/Event>/       { if (t != "") { gsub(/\t/, " ", erster); print t "\t" lvl "\t" prov "\t" id "\t" substr(erster, 1, 160) } prov = id = lvl = t = erster = "" }
+    ' > "$tmp/ereignisse.tsv"
+    if [ ! -s "$tmp/ereignisse.tsv" ]; then
+        warn "Das Ereignisprotokoll System.evtx auf $2 lässt sich nicht lesen oder ist leer (beschädigt?)."
+        return 0
+    fi
+    neu=$(cut -f1 "$tmp/ereignisse.tsv" | sort | tail -1 | cut -c1-10)
+    ab=$(date -u -d "$neu -14 days" +%Y-%m-%d 2>/dev/null || echo "$neu")
+    gesamt=$(wc -l < "$tmp/ereignisse.tsv")
+    info "Ereignisprotokoll System.evtx: $gesamt Einträge, letzter vom $neu (ausgewertet: Fehler seit $ab)."
+    # Nur Stufe 1 (kritisch) und 2 (Fehler) im Zeitraum, dazu die Windows-Meldung über ein unerwartetes Ausschalten (Stufe egal)
+    awk -F'\t' -v ab="$ab" '($1 >= ab) && ($2 == 1 || $2 == 2 || ($3 == "Microsoft-Windows-Kernel-Power" && $4 == 41) || ($3 == "EventLog" && $4 == 6008))' "$tmp/ereignisse.tsv" > "$tmp/fehler.tsv"
+    [ -s "$tmp/fehler.tsv" ] || { ok "Keine Fehler im Ereignisprotokoll der letzten 14 Tage vor dem letzten Eintrag."; return 0; }
+
+    zeit_letzte() { sort | tail -1 | cut -c1-16 | tr T ' '; }
+    n=$(awk -F'\t' '$3 == "Microsoft-Windows-Kernel-Power" && $4 == 41' "$tmp/fehler.tsv" | wc -l)
+    if [ "$n" -gt 0 ]; then
+        z=$(awk -F'\t' '$3 == "Microsoft-Windows-Kernel-Power" && $4 == 41 {print $1}' "$tmp/fehler.tsv" | zeit_letzte)
+        warn "Unerwartetes Ausschalten oder Neustart (Kernel-Power 41): $n Mal, zuletzt $z. Typisch bei Absturz, Stromausfall, Überhitzung oder Ausschalten per Taste."
+    fi
+    # Abstürze mit Stoppcode (WER-SystemErrorReporting 1001: der erste Datenwert nennt den Stoppcode)
+    awk -F'\t' '$3 == "Microsoft-Windows-WER-SystemErrorReporting" && $4 == 1001' "$tmp/fehler.tsv" | sort | tail -3 | while IFS="$(printf '\t')" read -r t l p i d; do
+        code=$(printf '%s' "$d" | grep -oiE '0x[0-9a-f]{1,8}' | head -1 | sed 's/^0[xX]0*/0x/' | tr 'a-f' 'A-F' | sed 's/^0X/0x/')
+        [ "$code" = "0x" ] && code=0x0
+        zeile=$(stopp_name "$code")
+        echo "[WARNUNG] Absturz (Bluescreen) am $(printf '%s' "$t" | cut -c1-16 | tr T ' '): Stoppcode $code ${zeile%%|*} – ${zeile#*|}"
+    done > "$tmp/abstuerze.txt"
+    if [ -s "$tmp/abstuerze.txt" ]; then cat "$tmp/abstuerze.txt"; NF=$((NF+$(wc -l < "$tmp/abstuerze.txt"))); fi
+    # Datenträger, Dateisystem, Hardware
+    for gruppe in 'disk|stornvme|storahci|storport|volmgr|partmgr|iaStor.*|vhdmp:Datenträger- und Controllerfehler' 'Ntfs|ReFS:Dateisystemfehler (NTFS)' 'Microsoft-Windows-WHEA-Logger:Hardwarefehler (WHEA: Prozessor, Speicher, PCIe)'; do
+        muster=${gruppe%%:*}; titel=${gruppe#*:}
+        n=$(awk -F'\t' -v m="^($muster)$" '$3 ~ m && ($2 == 1 || $2 == 2)' "$tmp/fehler.tsv" | wc -l)
+        if [ "$n" -gt 0 ]; then
+            z=$(awk -F'\t' -v m="^($muster)$" '$3 ~ m && ($2 == 1 || $2 == 2) {print $1}' "$tmp/fehler.tsv" | zeit_letzte)
+            warn "$titel im Ereignisprotokoll: $n Meldung(en), zuletzt $z."
+        fi
+    done
+    # Dienste und Treiber, die nicht starten konnten (Service Control Manager)
+    n=$(awk -F'\t' '$3 == "Service Control Manager" && ($4 == 7000 || $4 == 7001 || $4 == 7026 || $4 == 7023 || $4 == 7031 || $4 == 7034)' "$tmp/fehler.tsv" | wc -l)
+    [ "$n" -gt 0 ] && warn "Dienste oder Treiber konnten nicht starten oder sind abgestürzt (Service Control Manager): $n Meldung(en)."
+    # Die häufigsten Fehlerquellen, wenn sonst nichts auffällt
+    info "Häufigste Fehlerquellen im Zeitraum (Anzahl, Quelle, Kennung):"
+    awk -F'\t' '$2 == 1 || $2 == 2 {print $3 " (" $4 ")"}' "$tmp/fehler.tsv" | sort | uniq -c | sort -rn | head -5 | sed 's/^ *//; s/^/    /'
 }
 
 lsblk_aus=$(lsblk -Pnpo NAME,TYPE,FSTYPE,SIZE 2>/dev/null)
@@ -167,8 +224,12 @@ analysiere() { # Einhängepunkt, Gerät
         warn "Auf der Windows-Partition $dev sind weniger als 2 GiB frei ($((frei / 1024)) MiB): Updates und Start können daran scheitern."
     fi
 
+    vorher=$NF
+    ereignisse "$s32" "$dev"
+    hinweise=$((hinweise + NF - vorher))
+
     if [ "$hinweise" = 0 ]; then
-        info "Auf $dev keine Hinweise auf die Ursache gefunden (keine Startreparatur-Datei, keine Absturzabbilder, keine ausstehenden Updates, genug freier Platz). Das Windows-Ereignisprotokoll ist noch nicht ausgewertet."
+        info "Auf $dev keine Hinweise auf die Ursache gefunden (keine Startreparatur-Datei, keine Absturzabbilder, keine ausstehenden Updates, genug freier Platz, keine Fehler im Ereignisprotokoll)."
     fi
     return 0
 }

@@ -1,8 +1,8 @@
 {
   "id": "boot.windows-start",
-  "titel": "Windows startet nicht: Spurensuche (Startreparatur, Absturzabbilder, Updates)",
+  "titel": "Windows startet nicht: Spurensuche (Startreparatur, Absturzabbilder, Ereignisprotokoll)",
   "gruppe": "Booten",
-  "beschreibung": "Sucht nur lesend auf der Windows-Partition nach der Ursache, warum Windows nicht startet: Ergebnis der Startreparatur (SrtTrail.txt), Absturzabbilder mit Stoppcode, ausstehende Updates, Update- und Setup-Protokolle, Startprotokoll, freier Platz. Verschlüsselte Laufwerke (BitLocker) werden mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert; er steht im Microsoft-Konto des Besitzers). Läuft im Live-System des Sticks. Das Windows-Ereignisprotokoll ist noch nicht dabei.",
+  "beschreibung": "Sucht nur lesend auf der Windows-Partition nach der Ursache, warum Windows nicht startet: Ergebnis der Startreparatur (SrtTrail.txt), Absturzabbilder mit Stoppcode, ausstehende Updates, Update- und Setup-Protokolle, Startprotokoll, freier Platz, Fehler im Ereignisprotokoll (System.evtx der letzten 14 Tage: unerwartetes Ausschalten, Bluescreens mit Stoppcode, Datenträger-, Dateisystem- und Hardwarefehler, nicht startende Dienste). Verschlüsselte Laufwerke (BitLocker) werden mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert; er steht im Microsoft-Konto des Besitzers). Läuft im Live-System des Sticks.",
   "schnellpruefung": false,
   "parameter": [
     {
@@ -79,7 +79,7 @@
         "{module}/boot/windows-start.sh"
       ],
       "admin": true,
-      "timeoutSekunden": 300,
+      "timeoutSekunden": 600,
       "zeigeAusgabe": true,
       "regeln": [
         {

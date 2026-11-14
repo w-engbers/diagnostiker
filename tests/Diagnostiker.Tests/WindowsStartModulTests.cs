@@ -125,6 +125,89 @@ public sealed class WindowsStartModulTests : IDisposable
         Assert.Equal(Status.Warnung, Bewerten(aus));
     }
 
+    // ---- Ereignisprotokoll ----
+
+    static string Ereignis(string zeit, int stufe, string quelle, int id, string? daten = null) =>
+        $"<Event xmlns=\"http://schemas.microsoft.com/win/2004/08/events/event\">\n  <System>\n    <Provider Name=\"{quelle}\" Guid=\"{{00000000-0000-0000-0000-000000000000}}\"/>\n    <EventID>{id}</EventID>\n    <Version>0</Version>\n    <Level>{stufe}</Level>\n    <TimeCreated SystemTime=\"{zeit}\"/>\n  </System>\n  <EventData>\n" +
+        (daten is null ? "" : $"    <Data Name=\"param1\">{daten}</Data>\n") + "  </EventData>\n</Event>\n";
+
+    /// <summary>Legt System.evtx an (nur der Name zählt) und eine Attrappe von evtxexport, die die gegebenen Ereignisse als XML ausgibt.</summary>
+    void Ereignisprotokoll(params string[] ereignisse)
+    {
+        Datei("sda2/Windows/System32/winevt/Logs/System.evtx", "EVTX-Attrappe");
+        File.WriteAllText(Path.Combine(_ordner, "ereignisse.xml"), "evtxexport 20240504\n\n" + string.Concat(ereignisse));
+        Attrappe("evtxexport", $"cat '{_ordner}/ereignisse.xml'");
+    }
+
+    [Fact]
+    public void Ereignisprotokoll_ohne_Fehler_ist_in_Ordnung()
+    {
+        WindowsPartition();
+        Ereignisprotokoll(Ereignis("2026-11-10T10:00:00.000000000Z", 4, "Microsoft-Windows-Kernel-General", 12));
+        var aus = Lauf();
+        Assert.Contains("Ereignisprotokoll System.evtx: 1 Einträge, letzter vom 2026-11-10", aus);
+        Assert.Contains("Keine Fehler im Ereignisprotokoll", aus);
+        Assert.Equal(Status.Ok, Bewerten(aus));
+    }
+
+    [Fact]
+    public void Unerwartetes_Ausschalten_und_Bluescreen_mit_Stoppcode_werden_gemeldet()
+    {
+        WindowsPartition();
+        Ereignisprotokoll(
+            Ereignis("2026-11-01T08:00:00.000000000Z", 1, "Microsoft-Windows-Kernel-Power", 41),
+            Ereignis("2026-11-09T08:00:00.000000000Z", 1, "Microsoft-Windows-Kernel-Power", 41),
+            Ereignis("2026-11-10T09:30:00.000000000Z", 2, "Microsoft-Windows-WER-SystemErrorReporting", 1001, "0x0000007b (0xFFFFF8800, 0xC0000034, 0x0, 0x0). Ein Abbild wurde gespeichert."),
+            Ereignis("2026-11-10T10:00:00.000000000Z", 4, "Microsoft-Windows-Kernel-General", 12));
+        var aus = Lauf();
+        Assert.Contains("Kernel-Power 41): 2 Mal, zuletzt 2026-11-09 08:00", aus);   // der Eintrag vom 1.11. liegt innerhalb der 14 Tage
+        Assert.Contains("Stoppcode 0x7B INACCESSIBLE_BOOT_DEVICE", aus);
+        Assert.Equal(Status.Warnung, Bewerten(aus));
+    }
+
+    [Fact]
+    public void Alte_Fehler_ausserhalb_der_14_Tage_zaehlen_nicht()
+    {
+        WindowsPartition();
+        Ereignisprotokoll(
+            Ereignis("2026-09-01T08:00:00.000000000Z", 1, "Microsoft-Windows-Kernel-Power", 41),
+            Ereignis("2026-11-10T10:00:00.000000000Z", 4, "Microsoft-Windows-Kernel-General", 12));
+        var aus = Lauf();
+        Assert.DoesNotContain("Kernel-Power", aus);
+        Assert.Contains("Keine Fehler im Ereignisprotokoll", aus);
+    }
+
+    [Fact]
+    public void Platten_Dateisystem_Hardware_und_Dienstfehler_werden_nach_Art_gezaehlt()
+    {
+        WindowsPartition();
+        Ereignisprotokoll(
+            Ereignis("2026-11-10T08:00:00.000000000Z", 2, "disk", 7),
+            Ereignis("2026-11-10T08:05:00.000000000Z", 2, "stornvme", 129),
+            Ereignis("2026-11-10T08:10:00.000000000Z", 2, "Ntfs", 55),
+            Ereignis("2026-11-10T08:15:00.000000000Z", 1, "Microsoft-Windows-WHEA-Logger", 18),
+            Ereignis("2026-11-10T08:20:00.000000000Z", 2, "Service Control Manager", 7000),
+            Ereignis("2026-11-10T08:25:00.000000000Z", 2, "Schannel", 36887),
+            Ereignis("2026-11-10T08:26:00.000000000Z", 2, "Schannel", 36887));
+        var aus = Lauf();
+        Assert.Contains("Datenträger- und Controllerfehler im Ereignisprotokoll: 2 Meldung(en)", aus);
+        Assert.Contains("Dateisystemfehler (NTFS) im Ereignisprotokoll: 1 Meldung(en)", aus);
+        Assert.Contains("Hardwarefehler (WHEA", aus);
+        Assert.Contains("Dienste oder Treiber konnten nicht starten", aus);
+        Assert.Contains("2 Schannel (36887)", aus);   // häufigste Quelle
+    }
+
+    [Fact]
+    public void Unlesbares_Ereignisprotokoll_ist_eine_Warnung()
+    {
+        WindowsPartition();
+        Datei("sda2/Windows/System32/winevt/Logs/System.evtx", "kaputt");
+        Attrappe("evtxexport", "exit 1");
+        var aus = Lauf();
+        Assert.Contains("lässt sich nicht lesen", aus);
+        Assert.Equal(Status.Warnung, Bewerten(aus));
+    }
+
     [Fact]
     public void BitLocker_ohne_Schluessel_wird_nicht_geprueft_und_gemeldet()
     {

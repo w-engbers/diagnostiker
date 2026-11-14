@@ -29,6 +29,7 @@ parted
 e2fsprogs
 ntfs-3g
 cryptsetup-bin
+libevtx-utils
 exfatprogs
 dosfstools
 efibootmgr
