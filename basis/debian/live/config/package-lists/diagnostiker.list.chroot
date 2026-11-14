@@ -30,6 +30,13 @@ e2fsprogs
 ntfs-3g
 cryptsetup-bin
 libevtx-utils
+libhivex-bin
+
+# Drucker (für den Umstiegs-Check: Treiberdatenbank, ohne Drucker einzurichten)
+cups
+cups-client
+printer-driver-all
+ipp-usb
 exfatprogs
 dosfstools
 efibootmgr

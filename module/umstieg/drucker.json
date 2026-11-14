@@ -1,0 +1,130 @@
+{
+  "id": "umstieg.drucker",
+  "titel": "Drucker: laufen sie unter Linux?",
+  "gruppe": "Umstieg auf Linux",
+  "beschreibung": "Liest nur lesend die in Windows eingerichteten Drucker (aus der Windows-Registrierung der Platte) und prüft, ob das Live-System dafür einen Treiber hat. Listet außerdem Drucker auf, die gerade angeschlossen oder im Netz sichtbar sind. Reine Windows-Drucker (GDI/Host-based) werden als kritisch markiert. Bei BitLocker wird die Platte mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert). Den endgültigen Beweis liefert nur ein Test mit dem Drucker.",
+  "schnellpruefung": false,
+  "parameter": [
+    {
+      "name": "schluessel",
+      "frage": "BitLocker-Wiederherstellungsschlüssel (48 Ziffern, mit oder ohne Bindestriche, Eingabe verdeckt).\nLeer lassen, wenn das Laufwerk nicht verschlüsselt ist:",
+      "standard": "",
+      "geheim": true
+    }
+  ],
+  "schritte": [
+    {
+      "titel": "Drucker (Windows)",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output 'NUR_LINUX'"
+      ],
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Die Druckerprüfung läuft im Live-System des Sticks: Stick im Rechner des Besitzers starten."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Drucker",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "{module}/umstieg/drucker.sh"
+      ],
+      "admin": true,
+      "timeoutSekunden": 300,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Die Druckerprüfung läuft im Live-System des Sticks: Stick im Rechner des Besitzers starten."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
