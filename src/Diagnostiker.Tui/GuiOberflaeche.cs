@@ -201,6 +201,14 @@ sealed class GuiOberflaeche(Kontext k)
         status.Add(new Shortcut { Key = Key.F9, Title = "Zusammenfassung", Action = () => { _zeigeZusammenfassung = true; k.Session.Speichern(); Aktualisieren(); } });
         status.Add(new Shortcut { Key = Key.F10, Title = "Beenden", Action = () => app.RequestStop() });
 
+        // Tab wechselt zwischen Liste und Einzelheiten (die Liste behält Tab sonst für sich).
+        fenster.KeyDown += (_, taste) =>
+        {
+            if (taste != Key.Tab) return;
+            if (detail.HasFocus) liste.SetFocus(); else detail.SetFocus();
+            taste.Handled = true;
+        };
+
         fenster.Add(kopf, links, rechts, status);
         ZeigeText(StartText());
         app.Invoke(() => { liste.SetFocus(); });
@@ -283,7 +291,7 @@ sealed class GuiOberflaeche(Kontext k)
                          (vorher is null ? "" : $"   (vorher {vorher.Beginn:HH:mm} {Session.Text(vorher.Status)})"));
         }
         if (k.Session.Aktuelle.Count == 0) t.AppendLine("Noch keine Prüfung ausgeführt.");
-        t.AppendLine().AppendLine($"Gesamtbewertung: {Marke(k.Gesamt)}");
+        else t.AppendLine().AppendLine($"Gesamtbewertung: {Marke(k.Gesamt)}");
         t.AppendLine($"Bericht: {Path.Combine(k.Session.Verzeichnis, "bericht.md")}");
         return t.ToString();
     }
