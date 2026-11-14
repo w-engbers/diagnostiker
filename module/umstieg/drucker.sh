@@ -83,7 +83,7 @@ bewerte_drucker() { # Anzeigename, Treibername, Anschluss
     elif [ "$art" = Netzwerk ]; then
         info "Drucker „$name“ ($art): kein eigener Treiber in der Datenbank gefunden, aber Netzwerkdrucker arbeiten meist ohne Treiber (IPP/AirPrint). Mit dem Drucker testen."
     else
-        warn "Drucker „$name“ ($art): kein Treiber im Live-System gefunden. Auf der Seite des Herstellers und auf openprinting.org nachsehen; neuere USB-Drucker laufen oft treiberlos (IPP über USB), und viele Laserdrucker lassen sich mit einem generischen PCL- oder PostScript-Treiber betreiben. Mit dem Drucker testen."
+        warn "Drucker „$name“ ($art): kein passender Treiber in der Datenbank gefunden. Das heißt nicht, dass er nicht geht: Viele neuere Drucker arbeiten treiberlos (IPP, auch über USB), und viele Laserdrucker lassen sich mit einem generischen PCL- oder PostScript-Treiber betreiben. Mit dem Drucker testen und auf der Herstellerseite und auf openprinting.org nachsehen."
     fi
 }
 
@@ -100,18 +100,24 @@ analysiere() { # Einhängepunkt, Gerät
     gefunden=$((gefunden+1))
     echo
     info "Windows-Installation auf $dev: eingerichtete Drucker (aus der Windows-Registrierung)."
+    # Nur hivexsh benutzen, und zwar im unsicheren Modus (-u): Ein Windows mit "Schnellstart" lässt die Hive-Dateien unsauber zurück,
+    # dann verweigert hivexsh ohne -u das Öffnen und hivexget kennt diese Option nicht.
     # Aktuellen Satz von Steuerungseinstellungen lesen (meist ControlSet001)
-    aktuell=$(hivexget "$hive" '\Select' Current 2>/dev/null | tr -cd '0-9')
-    [ -n "$aktuell" ] || aktuell=1
+    hex=$(printf 'cd \\Select\nlsval\n' | hivexsh -u "$hive" 2>/dev/null | sed -n 's/^"Current"=dword:\([0-9a-fA-F]*\)$/\1/p')
+    aktuell=1; [ -n "$hex" ] && aktuell=$(printf '%d' "0x$hex")
     satz=$(printf 'ControlSet%03d' "$aktuell")
     schluessel="\\$satz\\Control\\Print\\Printers"
-    printf 'cd %s\nls\n' "$schluessel" | hivexsh "$hive" 2>/dev/null | sed 's/\r$//' > "$tmp/druckernamen"
+    printf 'cd %s\nls\n' "$schluessel" | hivexsh -u "$hive" 2>"$tmp/hivefehler" | sed 's/\r$//' > "$tmp/druckernamen"
     gesamt=$(grep -c . "$tmp/druckernamen")
+    if [ "$gesamt" = 0 ] && [ -s "$tmp/hivefehler" ]; then
+        warn "Die Drucker aus der Windows-Registrierung ($satz) lassen sich nicht lesen: $(head -1 "$tmp/hivefehler" | cut -c1-150)"
+    fi
     anzahl=0; virtuelle=0
     while IFS= read -r name; do
         [ -n "$name" ] || continue
-        treiber=$(hivexget "$hive" "$schluessel\\$name" "Printer Driver" 2>/dev/null)
-        port=$(hivexget "$hive" "$schluessel\\$name" "Port" 2>/dev/null)
+        werte=$(printf 'cd %s\ncd %s\nlsval\n' "$schluessel" "$name" | hivexsh -u "$hive" 2>/dev/null)
+        treiber=$(printf '%s\n' "$werte" | sed -n 's/^"Printer Driver"="\(.*\)"$/\1/p')
+        port=$(printf '%s\n' "$werte" | sed -n 's/^"Port"="\(.*\)"$/\1/p')
         if virtuell "$name" "$port"; then virtuelle=$((virtuelle+1)); continue; fi
         anzahl=$((anzahl+1))
         bewerte_drucker "$name" "${treiber:-$name}" "$port"
@@ -121,7 +127,7 @@ analysiere() { # Einhängepunkt, Gerät
     return 0
 }
 
-if command -v hivexsh >/dev/null 2>&1 && command -v hivexget >/dev/null 2>&1; then
+if command -v hivexsh >/dev/null 2>&1; then
     windows_durchlaufen analysiere
     windows_abschluss
 else

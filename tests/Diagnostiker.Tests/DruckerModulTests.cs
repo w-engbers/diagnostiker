@@ -52,8 +52,22 @@ public sealed class DruckerModulTests : IDisposable
         Attrappe("systemctl", "exit 0");   // den Druckdienst startet der Test nicht wirklich
         Attrappe("sleep", "exit 0");
         Attrappe("lsblk", $"cat '{_ordner}/lsblk.txt'");
-        Attrappe("hivexsh", $"cat >/dev/null; cat '{_ordner}/namen.txt'");
-        Attrappe("hivexget", $"n=\"${{2##*\\\\}}\"; grep -F \"$n|$3|\" '{_ordner}/werte.txt' | head -1 | cut -d'|' -f3-");
+        // Attrappe von hivexsh -u <hive> mit Befehlen auf der Standardeingabe: cd <Pfad oder Unterschlüssel>, ls, lsval (Werte als "Name"="Wert")
+        Attrappe("hivexsh", $$"""
+            case "$1" in -u) ;; *) echo "hivexsh: Option -u fehlt (Hive ist unsauber)" >&2; exit 1 ;; esac
+            pfad=""
+            while IFS= read -r z; do
+              case "$z" in
+                "cd "*) a=${z#cd }; case "$a" in \\*) pfad=$a ;; *) pfad="$pfad\\$a" ;; esac ;;
+                ls) cat '{{_ordner}}/namen.txt' ;;
+                lsval)
+                  case "$pfad" in
+                    *\\Select) echo '"Current"=dword:00000001' ;;
+                    *) n="${pfad##*\\}"; grep -F "$n|" '{{_ordner}}/werte.txt' | while IFS='|' read -r nn k w; do printf '"%s"="%s"\n' "$k" "$w"; done ;;
+                  esac ;;
+              esac
+            done
+            """);
         Attrappe("lpinfo", $"case \"$1\" in -m) cat '{_ordner}/modelle.txt' ;; -v) cat '{_ordner}/geraete.txt' ;; esac");
         var psi = new ProcessStartInfo("sh") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
         psi.ArgumentList.Add(Path.Combine(ModulLader.ModulVerzeichnisFinden()!, "umstieg", "drucker.sh"));
@@ -94,7 +108,7 @@ public sealed class DruckerModulTests : IDisposable
         Drucker("Fabrikat ZX-9000", "Fabrikat ZX-9000", "USB003");
         Drucker("Netzdrucker Q-7000", "Netzdrucker Q-7000", "IP_192.168.0.7");
         var aus = Lauf();
-        Assert.Contains("[WARNUNG] Drucker „Fabrikat ZX-9000“ (USB): kein Treiber im Live-System gefunden", aus);
+        Assert.Contains("[WARNUNG] Drucker „Fabrikat ZX-9000“ (USB): kein passender Treiber in der Datenbank gefunden", aus);
         Assert.Contains("[INFO] Drucker „Netzdrucker Q-7000“ (Netzwerk): kein eigener Treiber in der Datenbank gefunden, aber Netzwerkdrucker arbeiten meist ohne Treiber", aus);
         Assert.Equal(Status.Warnung, Bewerten(aus));
     }
