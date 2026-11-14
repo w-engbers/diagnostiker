@@ -160,7 +160,7 @@ public sealed class WindowsStartModulTests : IDisposable
             Ereignis("2026-11-10T09:30:00.000000000Z", 2, "Microsoft-Windows-WER-SystemErrorReporting", 1001, "0x0000007b (0xFFFFF8800, 0xC0000034, 0x0, 0x0). Ein Abbild wurde gespeichert."),
             Ereignis("2026-11-10T10:00:00.000000000Z", 4, "Microsoft-Windows-Kernel-General", 12));
         var aus = Lauf();
-        Assert.Contains("Kernel-Power 41): 2 Mal, zuletzt 2026-11-09 08:00", aus);   // der Eintrag vom 1.11. liegt innerhalb der 14 Tage
+        Assert.Contains("Kernel-Power 41): 2 Mal, zuletzt 2026-11-09 08:00 UTC", aus);   // der Eintrag vom 1.11. liegt innerhalb der 14 Tage
         Assert.Contains("Stoppcode 0x7B INACCESSIBLE_BOOT_DEVICE", aus);
         Assert.Equal(Status.Warnung, Bewerten(aus));
     }
@@ -182,8 +182,9 @@ public sealed class WindowsStartModulTests : IDisposable
     {
         WindowsPartition();
         Ereignisprotokoll(
-            Ereignis("2026-11-10T08:00:00.000000000Z", 2, "disk", 7),
+            Ereignis("2026-11-10T08:00:00.000000000Z", 2, "disk", 7, "\\Device\\Harddisk0\\DR0"),
             Ereignis("2026-11-10T08:05:00.000000000Z", 2, "stornvme", 129),
+            Ereignis("2026-11-10T08:06:00.000000000Z", 2, "disk", 11, "\\Device\\Harddisk1\\DR1"),
             Ereignis("2026-11-10T08:10:00.000000000Z", 2, "Ntfs", 55),
             Ereignis("2026-11-10T08:15:00.000000000Z", 1, "Microsoft-Windows-WHEA-Logger", 18),
             Ereignis("2026-11-10T08:20:00.000000000Z", 2, "Service Control Manager", 7000),
@@ -191,6 +192,7 @@ public sealed class WindowsStartModulTests : IDisposable
             Ereignis("2026-11-10T08:26:00.000000000Z", 2, "Schannel", 36887));
         var aus = Lauf();
         Assert.Contains("Datenträger- und Controllerfehler im Ereignisprotokoll: 2 Meldung(en)", aus);
+        Assert.Contains("Fehler auf Zusatzlaufwerken (Harddisk1 und höher) im Ereignisprotokoll: 1 Meldung(en)", aus);
         Assert.Contains("Dateisystemfehler (NTFS) im Ereignisprotokoll: 1 Meldung(en)", aus);
         Assert.Contains("Hardwarefehler (WHEA", aus);
         Assert.Contains("Dienste oder Treiber konnten nicht starten", aus);

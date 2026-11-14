@@ -105,12 +105,12 @@ ereignisse() { # Ordner System32, Gerät
     neu=$(cut -f1 "$tmp/ereignisse.tsv" | sort | tail -1 | cut -c1-10)
     ab=$(date -u -d "$neu -14 days" +%Y-%m-%d 2>/dev/null || echo "$neu")
     gesamt=$(wc -l < "$tmp/ereignisse.tsv")
-    info "Ereignisprotokoll System.evtx: $gesamt Einträge, letzter vom $neu (ausgewertet: Fehler seit $ab)."
+    info "Ereignisprotokoll System.evtx: $gesamt Einträge, letzter vom $neu (ausgewertet: Fehler seit $ab; alle Uhrzeiten in UTC, also im Winter eine Stunde, im Sommer zwei Stunden hinter der Ortszeit)."
     # Nur Stufe 1 (kritisch) und 2 (Fehler) im Zeitraum, dazu die Windows-Meldung über ein unerwartetes Ausschalten (Stufe egal)
     awk -F'\t' -v ab="$ab" '($1 >= ab) && ($2 == 1 || $2 == 2 || ($3 == "Microsoft-Windows-Kernel-Power" && $4 == 41) || ($3 == "EventLog" && $4 == 6008))' "$tmp/ereignisse.tsv" > "$tmp/fehler.tsv"
     [ -s "$tmp/fehler.tsv" ] || { ok "Keine Fehler im Ereignisprotokoll der letzten 14 Tage vor dem letzten Eintrag."; return 0; }
 
-    zeit_letzte() { sort | tail -1 | cut -c1-16 | tr T ' '; }
+    zeit_letzte() { sort | tail -1 | cut -c1-16 | tr T ' ' | sed 's/$/ UTC/'; }
     n=$(awk -F'\t' '$3 == "Microsoft-Windows-Kernel-Power" && $4 == 41' "$tmp/fehler.tsv" | wc -l)
     if [ "$n" -gt 0 ]; then
         z=$(awk -F'\t' '$3 == "Microsoft-Windows-Kernel-Power" && $4 == 41 {print $1}' "$tmp/fehler.tsv" | zeit_letzte)
@@ -121,11 +121,23 @@ ereignisse() { # Ordner System32, Gerät
         code=$(printf '%s' "$d" | grep -oiE '0x[0-9a-f]{1,8}' | head -1 | sed 's/^0[xX]0*/0x/' | tr 'a-f' 'A-F' | sed 's/^0X/0x/')
         [ "$code" = "0x" ] && code=0x0
         zeile=$(stopp_name "$code")
-        echo "[WARNUNG] Absturz (Bluescreen) am $(printf '%s' "$t" | cut -c1-16 | tr T ' '): Stoppcode $code ${zeile%%|*} – ${zeile#*|}"
+        echo "[WARNUNG] Absturz (Bluescreen) am $(printf '%s' "$t" | cut -c1-16 | tr T ' ') UTC: Stoppcode $code ${zeile%%|*} – ${zeile#*|}"
     done > "$tmp/abstuerze.txt"
     if [ -s "$tmp/abstuerze.txt" ]; then cat "$tmp/abstuerze.txt"; NF=$((NF+$(wc -l < "$tmp/abstuerze.txt"))); fi
-    # Datenträger, Dateisystem, Hardware
-    for gruppe in 'disk|stornvme|storahci|storport|volmgr|partmgr|iaStor.*|vhdmp:Datenträger- und Controllerfehler' 'Ntfs|ReFS:Dateisystemfehler (NTFS)' 'Microsoft-Windows-WHEA-Logger:Hardwarefehler (WHEA: Prozessor, Speicher, PCIe)'; do
+    # Datenträger: Fehler auf Harddisk0 (meist die Systemplatte) oder ohne Angabe gegen Zusatzlaufwerke (Harddisk1 …, oft USB) trennen;
+    # der erste Datenwert dieser Ereignisse nennt das Gerät, z. B. \Device\Harddisk1\DR1.
+    plattenmuster='^(disk|stornvme|storahci|storport|volmgr|partmgr|iaStor.*|vhdmp)$'
+    n=$(awk -F'\t' -v m="$plattenmuster" '$3 ~ m && ($2 == 1 || $2 == 2) && $5 !~ /Harddisk[1-9]/' "$tmp/fehler.tsv" | wc -l)
+    if [ "$n" -gt 0 ]; then
+        z=$(awk -F'\t' -v m="$plattenmuster" '$3 ~ m && ($2 == 1 || $2 == 2) && $5 !~ /Harddisk[1-9]/ {print $1}' "$tmp/fehler.tsv" | zeit_letzte)
+        warn "Datenträger- und Controllerfehler im Ereignisprotokoll: $n Meldung(en), zuletzt $z. Platte, Kabel und Anschluss prüfen."
+    fi
+    n=$(awk -F'\t' -v m="$plattenmuster" '$3 ~ m && ($2 == 1 || $2 == 2) && $5 ~ /Harddisk[1-9]/' "$tmp/fehler.tsv" | wc -l)
+    if [ "$n" -gt 0 ]; then
+        z=$(awk -F'\t' -v m="$plattenmuster" '$3 ~ m && ($2 == 1 || $2 == 2) && $5 ~ /Harddisk[1-9]/ {print $1}' "$tmp/fehler.tsv" | zeit_letzte)
+        warn "Fehler auf Zusatzlaufwerken (Harddisk1 und höher) im Ereignisprotokoll: $n Meldung(en), zuletzt $z. Meist ein USB-Gerät (Stick, externe Platte), das ohne Abmelden entfernt wurde oder wackelt."
+    fi
+    for gruppe in 'Ntfs|ReFS:Dateisystemfehler (NTFS)' 'Microsoft-Windows-WHEA-Logger:Hardwarefehler (WHEA: Prozessor, Speicher, PCIe)'; do
         muster=${gruppe%%:*}; titel=${gruppe#*:}
         n=$(awk -F'\t' -v m="^($muster)$" '$3 ~ m && ($2 == 1 || $2 == 2)' "$tmp/fehler.tsv" | wc -l)
         if [ "$n" -gt 0 ]; then
@@ -133,9 +145,9 @@ ereignisse() { # Ordner System32, Gerät
             warn "$titel im Ereignisprotokoll: $n Meldung(en), zuletzt $z."
         fi
     done
-    # Dienste und Treiber, die nicht starten konnten (Service Control Manager)
+    # Dienste und Treiber, die nicht starten konnten (Service Control Manager): auch auf gesunden Systemen häufig, daher nur ein Hinweis
     n=$(awk -F'\t' '$3 == "Service Control Manager" && ($4 == 7000 || $4 == 7001 || $4 == 7026 || $4 == 7023 || $4 == 7031 || $4 == 7034)' "$tmp/fehler.tsv" | wc -l)
-    [ "$n" -gt 0 ] && warn "Dienste oder Treiber konnten nicht starten oder sind abgestürzt (Service Control Manager): $n Meldung(en)."
+    [ "$n" -gt 0 ] && info "Dienste oder Treiber konnten nicht starten oder sind abgestürzt (Service Control Manager): $n Meldung(en) (kommt auch auf gesunden Systemen vor)."
     # Die häufigsten Fehlerquellen, wenn sonst nichts auffällt
     info "Häufigste Fehlerquellen im Zeitraum (Anzahl, Quelle, Kennung):"
     awk -F'\t' '$2 == 1 || $2 == 2 {print $3 " (" $4 ")"}' "$tmp/fehler.tsv" | sort | uniq -c | sort -rn | head -5 | sed 's/^ *//; s/^/    /'
