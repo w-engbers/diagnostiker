@@ -7,7 +7,7 @@
   "parameter": [
     {
       "name": "schluessel",
-      "frage": "BitLocker-Wiederherstellungsschlüssel (48 Ziffern, Eingabe verdeckt).\nLeer lassen, wenn das Laufwerk nicht verschlüsselt ist:",
+      "frage": "BitLocker-Wiederherstellungsschlüssel (48 Ziffern, mit oder ohne Bindestriche, Eingabe verdeckt).\nLeer lassen, wenn das Laufwerk nicht verschlüsselt ist:",
       "standard": "",
       "geheim": true
     }
