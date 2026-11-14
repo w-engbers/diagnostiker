@@ -11,6 +11,10 @@ sealed class Kontext
     public required Session Session { get; init; }
     public required IReadOnlyList<string> Ladefehler { get; init; }
 
+    /// <summary>Geheime Eingaben (z. B. BitLocker-Schlüssel) dieser Sitzung, nur im Arbeitsspeicher: Wiederholungen und andere
+    /// Prüfungen am selben Rechner fragen nicht erneut. Nichts davon wird gespeichert oder protokolliert.</summary>
+    public Dictionary<string, string> GemerkteGeheimnisse { get; } = new();
+
     /// <summary>Im Live-System (Root, NetworkManager) lässt sich das Netzwerk aus dem Programm heraus einrichten.</summary>
     public bool NetzwerkEinrichten { get; } = Plattform.IstLinux && Plattform.HatAdminRechte && ProgrammVorhanden("nmtui");
 

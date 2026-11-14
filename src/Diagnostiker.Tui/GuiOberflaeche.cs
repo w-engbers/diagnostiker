@@ -131,9 +131,13 @@ sealed class GuiOberflaeche(Kontext k)
                 var abgebrochen = false;
                 foreach (var p in m.Parameter)
                 {
+                    if (fragen && p.Geheim && k.GemerkteGeheimnisse.TryGetValue(p.Name, out var gemerkt)
+                        && MessageBox.Query(app, m.Titel, "Den vorhin eingegebenen Schlüssel (nur im Arbeitsspeicher gemerkt)\nerneut verwenden?", "Ja", "Nein, neu eingeben") == 0)
+                    { parameter[p.Name] = gemerkt; continue; }
                     var wert = fragen ? Eingabe(app, m.Titel, p.Frage, p.Standard, p.Geheim) : p.Standard;
                     if (wert is null) { abgebrochen = true; break; }
                     parameter[p.Name] = wert;
+                    if (p.Geheim && wert.Length > 0) k.GemerkteGeheimnisse[p.Name] = wert;
                 }
                 if (!abgebrochen) auftraege.Add((m, parameter));
             }

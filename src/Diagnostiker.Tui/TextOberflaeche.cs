@@ -97,9 +97,13 @@ sealed class TextOberflaeche(Kontext k)
         foreach (var p in m.Parameter)
         {
             if (!fragen) { parameter[p.Name] = p.Standard; continue; }
+            if (p.Geheim && k.GemerkteGeheimnisse.TryGetValue(p.Name, out var gemerkt)
+                && AnsiConsole.Confirm($"{Markup.Escape(p.Name)}: den vorhin eingegebenen Wert erneut verwenden?", true))
+            { parameter[p.Name] = gemerkt; continue; }
             var frage = new TextPrompt<string>(Markup.Escape(p.Frage)).DefaultValue(p.Standard).AllowEmpty();
             if (p.Geheim) frage = frage.Secret();   // Eingabe als Sternchen
             parameter[p.Name] = AnsiConsole.Prompt(frage);
+            if (p.Geheim && parameter[p.Name].Length > 0) k.GemerkteGeheimnisse[p.Name] = parameter[p.Name];
         }
 
         ModulErgebnis erg = null!;
