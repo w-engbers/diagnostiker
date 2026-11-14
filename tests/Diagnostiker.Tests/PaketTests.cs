@@ -146,3 +146,15 @@ public sealed class PaketBauerTests : IDisposable
         Assert.Throws<PaketException>(() => PaketBauer.Bauen(boot, daten, aus, "../1", 2560, priv));
     }
 }
+
+public sealed class EingebauterSchluesselTests
+{
+    [Fact]
+    public void Eingebauter_Schluessel_ist_ein_gueltiger_oeffentlicher_Schluessel()
+    {
+        var k = EingebauterSchluessel.Lesen();
+        using var e = System.Security.Cryptography.ECDsa.Create();
+        e.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
+        Assert.Equal(256, e.KeySize);
+    }
+}

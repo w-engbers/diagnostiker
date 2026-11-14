@@ -16,6 +16,12 @@ if (!OperatingSystem.IsLinux())
     return 1;
 }
 
+// Herausgeber-Befehle (kein Laufwerkszugriff):
+//   schluessel-erzeugen <datei>                                       neues Signaturschlüsselpaar (privat in <datei>, Rechte 600; öffentlich auf der Ausgabe)
+//   paket-bauen <boot.img> <datenordner> <ausgabe> <version> <schluesseldatei> [--bootmib N] [--folgeschluessel <öffentlicher Schlüssel>]
+if (args.Length > 0 && args[0] == "schluessel-erzeugen") return SchluesselErzeugen(args);
+if (args.Length > 0 && args[0] == "paket-bauen") return PaketBauen(args);
+
 var quelle = new LsblkQuelle();
 var befehle = new ProzessBefehle();
 
@@ -183,4 +189,39 @@ async Task LaufwerkeZeigenAsync()
     AnsiConsole.MarkupLine(anzahl == 0
         ? "[yellow]Kein geeigneter USB-Stick gefunden.[/] Stick einstecken und erneut ansehen."
         : $"[green]{anzahl} geeignete(r) Stick(s).[/]");
+}
+
+
+static int SchluesselErzeugen(string[] a)
+{
+    if (a.Length < 2) { Fehler("Aufruf: schluessel-erzeugen <datei für den privaten Schlüssel>"); return 2; }
+    var datei = a[1];
+    if (File.Exists(datei)) { Fehler($"{datei} existiert bereits und wird nicht überschrieben."); return 1; }
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(datei))!);
+    var (priv, pub) = Diagnostiker.StickKern.Paket.Signatur.SchluesselErzeugen();
+    File.WriteAllText(datei, priv + "\n");
+    File.SetUnixFileMode(datei, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+    Console.WriteLine(pub);
+    Console.Error.WriteLine($"Privater Schlüssel: {datei} (Rechte 600). Eine Kopie gehört offline in die Sicherung, nicht ins Repo.");
+    return 0;
+}
+
+static int PaketBauen(string[] a)
+{
+    if (a.Length < 6) { Fehler("Aufruf: paket-bauen <boot.img> <datenordner> <ausgabe> <version> <schluesseldatei> [--bootmib N] [--folgeschluessel K]"); return 2; }
+    var bootMib = 2560; string? folge = null;
+    for (var i = 6; i < a.Length - 1; i++)
+    {
+        if (a[i] == "--bootmib") bootMib = int.Parse(a[i + 1]);
+        if (a[i] == "--folgeschluessel") folge = a[i + 1];
+    }
+    try
+    {
+        var m = Diagnostiker.StickKern.Paket.PaketBauer.Bauen(a[1], a[2], a[3], a[4], bootMib, File.ReadAllText(a[5]).Trim(), folge,
+            z => AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]"));
+        AnsiConsole.MarkupLineInterpolated($"[green]Paket {m.Version} gebaut:[/] {a[3]}");
+        foreach (var d in m.Dateien) Console.WriteLine($"  {d.Name}  {Sicherheit.Groesse(d.Groesse)}  {d.Sha256}");
+        return 0;
+    }
+    catch (Diagnostiker.StickKern.Paket.PaketException e) { Fehler(e.Message); return 1; }
 }

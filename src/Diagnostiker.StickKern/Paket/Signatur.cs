@@ -62,3 +62,15 @@ public sealed class Vertrauen(IEnumerable<string> schluessel)
         return (m, neu);
     }
 }
+
+/// <summary>Der in das Programm eingebaute öffentliche Schlüssel des Herausgebers (Datei <c>oeffentlicher-schluessel.txt</c>).</summary>
+public static class EingebauterSchluessel
+{
+    public static string Lesen()
+    {
+        using var s = typeof(EingebauterSchluessel).Assembly.GetManifestResourceStream("oeffentlicher-schluessel.txt")
+            ?? throw new PaketException("Im Programm ist kein öffentlicher Schlüssel eingebaut.");
+        using var r = new StreamReader(s);
+        return r.ReadToEnd().Trim();
+    }
+}
