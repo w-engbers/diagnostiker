@@ -1,0 +1,97 @@
+{
+  "id": "umstieg.hardware",
+  "titel": "Linux-Tauglichkeit: Geräte, Treiber, Akku, Standby",
+  "gruppe": "Umstieg auf Linux",
+  "beschreibung": "Prüft nur lesend, wie gut dieser Rechner mit Linux zurechtkommt: Prozessor und Arbeitsspeicher, Grafik, Netzwerk und Ton mit ihren Treibern, Kamera, Touchpad, Akku, Standby, Plattentyp sowie Geräte ohne Treiber und fehlende Firmware. Am aussagekräftigsten im Live-System des Sticks (der Rechner läuft dann wirklich mit Linux). Für Beratungen vor einem Umstieg von Windows auf Linux.",
+  "schnellpruefung": false,
+  "schritte": [
+    {
+      "titel": "Linux-Tauglichkeit (Windows)",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output 'NUR_LINUX'"
+      ],
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Die Linux-Tauglichkeit wird im Live-System des Sticks geprüft: Stick im betroffenen Rechner starten."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Linux-Tauglichkeit",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "{module}/umstieg/hardware.sh"
+      ],
+      "timeoutSekunden": 60,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Die Linux-Tauglichkeit wird im Live-System des Sticks geprüft: Stick im betroffenen Rechner starten."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
