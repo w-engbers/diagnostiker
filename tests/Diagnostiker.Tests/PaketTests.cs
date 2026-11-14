@@ -101,3 +101,48 @@ public sealed class PaketTests : IDisposable
         Assert.Throws<PaketException>(() => PaketPruefer.DateiPruefen(Path.Combine(_ordner, "fehlt"), new("fehlt", "boot", 1, summe)));
     }
 }
+
+public sealed class PaketBauerTests : IDisposable
+{
+    readonly string _ordner = Directory.CreateTempSubdirectory("paketbauer").FullName;
+    public void Dispose() => Directory.Delete(_ordner, true);
+
+    [Fact]
+    public void Gebautes_Paket_laesst_sich_pruefen_und_entpacken()
+    {
+        var boot = Path.Combine(_ordner, "boot.img"); File.WriteAllBytes(boot, new byte[3 << 20]);
+        var daten = Path.Combine(_ordner, "daten"); Directory.CreateDirectory(Path.Combine(daten, "bin")); Directory.CreateDirectory(Path.Combine(daten, "protokolle"));
+        File.WriteAllText(Path.Combine(daten, "stick.json"), "{}"); File.WriteAllText(Path.Combine(daten, "bin", "x.txt"), "hallo");
+        var aus = Path.Combine(_ordner, "aus");
+        var (priv, pub) = Signatur.SchluesselErzeugen();
+
+        var m = PaketBauer.Bauen(boot, daten, aus, "2026.11.1", 2560, priv);
+        Assert.Equal(3 << 20, m.Boot.EntpacktGroesse);
+
+        var (gelesen, _) = new Vertrauen([pub]).Pruefen(File.ReadAllBytes(Path.Combine(aus, "manifest.json")), File.ReadAllText(Path.Combine(aus, "manifest.json.sig")));
+        PaketPruefer.DateiPruefen(Path.Combine(aus, "boot.img.gz"), gelesen.Boot);
+        PaketPruefer.DateiPruefen(Path.Combine(aus, "daten.tar.gz"), gelesen.Daten);
+
+        // Entpacken wie das Frontend
+        var ziel = Path.Combine(_ordner, "entpackt"); Directory.CreateDirectory(ziel);
+        using (var s = File.OpenRead(Path.Combine(aus, "daten.tar.gz")))
+        using (var gz = new System.IO.Compression.GZipStream(s, System.IO.Compression.CompressionMode.Decompress))
+            System.Formats.Tar.TarFile.ExtractToDirectory(gz, ziel, true);
+        Assert.Equal("hallo", File.ReadAllText(Path.Combine(ziel, "bin", "x.txt")));
+        Assert.True(Directory.Exists(Path.Combine(ziel, "protokolle")));   // auch leere Ordner
+        using var b = new System.IO.Compression.GZipStream(File.OpenRead(Path.Combine(aus, "boot.img.gz")), System.IO.Compression.CompressionMode.Decompress);
+        var mem = new MemoryStream(); b.CopyTo(mem); Assert.Equal(3 << 20, mem.Length);
+    }
+
+    [Fact]
+    public void Veraenderte_Datei_wird_erkannt_und_ungueltige_Version_abgelehnt()
+    {
+        var boot = Path.Combine(_ordner, "boot.img"); File.WriteAllBytes(boot, new byte[1000]);
+        var daten = Path.Combine(_ordner, "daten"); Directory.CreateDirectory(daten); File.WriteAllText(Path.Combine(daten, "a"), "a");
+        var aus = Path.Combine(_ordner, "aus"); var (priv, _) = Signatur.SchluesselErzeugen();
+        var m = PaketBauer.Bauen(boot, daten, aus, "1.0", 2560, priv);
+        File.AppendAllText(Path.Combine(aus, "daten.tar.gz"), "x");
+        Assert.Throws<PaketException>(() => PaketPruefer.DateiPruefen(Path.Combine(aus, "daten.tar.gz"), m.Daten));
+        Assert.Throws<PaketException>(() => PaketBauer.Bauen(boot, daten, aus, "../1", 2560, priv));
+    }
+}
