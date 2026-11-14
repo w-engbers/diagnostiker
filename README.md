@@ -64,15 +64,15 @@ Neue Versionen werden nie automatisch übernommen: neuen Eintrag mit geprüften 
 ## Bedienung des Prüfprogramms
 
 Das Programm startet eine Bildschirmoberfläche im Textmodus (läuft auf der Linux-Konsole und in Windows-Konsolen, ohne Grafikmodus):
-links die Prüfungen mit Bewertung, rechts die Einzelheiten der markierten Prüfung (scrollbar), unten die Tasten.
+oben die Prüfungen mit Bewertung, darunter die Einzelheiten der markierten Prüfung (scrollbar), ganz unten die Tasten. Nur F6 bis F10 sind belegt: Die Linux-Textkonsole sendet für F1 bis F5 Folgen, die die Oberfläche nicht erkennt.
 
 | Taste | Wirkung |
 |---|---|
 | Pfeiltasten, Enter | Prüfung wählen, ausführen |
-| F5 | Schnellprüfung (alle harmlosen Standardtests), danach Zusammenfassung |
-| F6 | Netzwerk verbinden (nur im Live-System, `nmtui`) |
-| F7, F8 | Notiz zum Protokoll, Zusammenfassung |
-| F9 oder Tab | zwischen Liste und Einzelheiten wechseln (dort mit Bild-auf/Bild-ab blättern) |
+| F6 | Schnellprüfung (alle harmlosen Standardtests), danach Zusammenfassung |
+| F7 | Netzwerk verbinden (nur im Live-System, `nmtui`) |
+| F8, F9 | Notiz zum Protokoll, Zusammenfassung |
+| Tab | zwischen Liste (oben) und Einzelheiten (unten) wechseln (dort mit Bild-auf/Bild-ab blättern) |
 | F10 | Beenden, der Bericht wird gespeichert |
 
 `--text` startet die einfache Textansicht (Menü und fortlaufende Ausgabe), `--schnell` führt ohne Menü alle Schnellprüfungen aus.

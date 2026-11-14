@@ -16,7 +16,7 @@
         "-ExecutionPolicy",
         "Bypass",
         "-Command",
-        "Write-Output 'Unter Windows deckt die Prüfung Fehler im Systemprotokoll bereits die letzten 14 Tage (mehrere Starts) ab.'; Write-Output 'NUR_LINUX'"
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Write-Output 'Unter Windows deckt die Prüfung Fehler im Systemprotokoll bereits die letzten 14 Tage (mehrere Starts) ab.'; Write-Output 'NUR_LINUX'"
       ],
       "zeigeAusgabe": true,
       "regeln": [

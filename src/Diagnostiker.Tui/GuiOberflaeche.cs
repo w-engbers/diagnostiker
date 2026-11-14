@@ -38,12 +38,21 @@ sealed class GuiOberflaeche(Kontext k)
             wiederholeNetzwerk = false;
             if (aktion != Folgeaktion.Netzwerk) break;
             // Terminal.Gui ist beendet, das Terminal gehört jetzt nmtui; danach startet die Oberfläche neu.
+            BildschirmLeeren();
             _hinweis = await Kontext.NetzwerkEinrichtenAsync();
             wiederholeNetzwerk = _hinweis is null;
         }
         k.Session.Speichern();
+        BildschirmLeeren();
         Console.WriteLine($"Bericht: {Path.Combine(k.Session.Verzeichnis, "bericht.md")}");
         return 0;
+    }
+
+    /// <summary>Die Linux-Textkonsole hat keinen zweiten Bildschirm: Nach dem Beenden stünde die Oberfläche noch da, und die nächste
+    /// Ausgabe (Hinweise, Menü des Startskripts) würde über die ersten Zeilen geschrieben.</summary>
+    static void BildschirmLeeren()
+    {
+        try { Console.ResetColor(); Console.Clear(); } catch { /* ohne Konsole nichts zu tun */ }
     }
 
     // Eigenes Farbschema: Die Standardfarben von Terminal.Gui sind auf der Linux-Konsole mit ihren 16 Farben
@@ -75,8 +84,9 @@ sealed class GuiOberflaeche(Kontext k)
             Text = $"Rechner: {k.Session.Rechnername}   System: {Plattform.OsName}   " +
                    (Plattform.HatAdminRechte ? "Administratorrechte: ja" : "Administratorrechte: NEIN (manche Prüfungen werden übersprungen)"),
         };
-        var links = new FrameView { Title = "Prüfungen (Enter = ausführen)", X = 0, Y = 1, Width = Dim.Percent(50), Height = Dim.Fill(1) };
-        var liste = new ListView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill() };
+        // Untereinander statt nebeneinander: Die Einzelheiten brauchen die volle Breite, sonst brechen lange Zeilen um.
+        var links = new FrameView { Title = "Prüfungen (Enter = ausführen, Tab = Fenster wechseln)", X = 0, Y = 1, Width = Dim.Fill(), Height = Dim.Percent(40) };
+        var liste = new ListView { X = 1, Y = 0, Width = Dim.Fill(1), Height = Dim.Fill() };    // 1 Zeichen Abstand zum Rahmen
         _zeilen.Clear();
         foreach (var m in k.Module) _zeilen.Add(Zeile(m));
         liste.SetSource(_zeilen);
@@ -84,8 +94,8 @@ sealed class GuiOberflaeche(Kontext k)
         links.CanFocus = true;
         links.Add(liste);
 
-        var rechts = new FrameView { Title = "Einzelheiten", X = Pos.Right(links), Y = 1, Width = Dim.Fill(), Height = Dim.Fill(1) };
-        var detail = new TextView { X = 0, Y = 0, Width = Dim.Fill(), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
+        var rechts = new FrameView { Title = "Einzelheiten", X = 0, Y = Pos.Bottom(links), Width = Dim.Fill(), Height = Dim.Fill(1) };
+        var detail = new TextView { X = 1, Y = 0, Width = Dim.Fill(1), Height = Dim.Fill(), ReadOnly = true, WordWrap = true };
         rechts.CanFocus = true;
         detail.CanFocus = true;
         rechts.Add(detail);
@@ -173,28 +183,22 @@ sealed class GuiOberflaeche(Kontext k)
         };
 
         // ---- Tasten unten ----
+        // Nur F6 bis F10: Die Linux-Textkonsole sendet für F1 bis F5 eigene Folgen (ESC [ [ A bis E), die Terminal.Gui nicht erkennt.
         var status = new StatusBar();
         status.SetScheme(_schema);
-        status.Add(new Shortcut { Key = Key.F5, Title = "Schnellprüfung", Action = () => Starten(k.Schnellpruefungen.ToList(), fragen: false, mitZusammenfassung: true) });
+        status.Add(new Shortcut { Key = Key.F6, Title = "Schnellprüfung", Action = () => Starten(k.Schnellpruefungen.ToList(), fragen: false, mitZusammenfassung: true) });
         if (k.NetzwerkEinrichten)
-            status.Add(new Shortcut { Key = Key.F6, Title = "Netzwerk", Action = () => { if (_beschaeftigt) return; aktion = Folgeaktion.Netzwerk; app.RequestStop(); } });
+            status.Add(new Shortcut { Key = Key.F7, Title = "Netzwerk", Action = () => { if (_beschaeftigt) return; aktion = Folgeaktion.Netzwerk; app.RequestStop(); } });
         status.Add(new Shortcut
         {
-            Key = Key.F7, Title = "Notiz", Action = () =>
+            Key = Key.F8, Title = "Notiz", Action = () =>
             {
                 var text = Eingabe(app, "Notiz zum Protokoll", "Notiz (z. B. Name/Beschwerde des Besitzers):", k.Session.Notiz);
                 if (text is null) return;
                 k.Session.Notiz = text; k.Session.Speichern();
             }
         });
-        status.Add(new Shortcut { Key = Key.F8, Title = "Zusammenfassung", Action = () => { _zeigeZusammenfassung = true; k.Session.Speichern(); Aktualisieren(); } });
-        status.Add(new Shortcut
-        {
-            Key = Key.F9, Title = "Liste/Einzelheiten", Action = () =>
-            {
-                if (detail.HasFocus) liste.SetFocus(); else detail.SetFocus();
-            }
-        });
+        status.Add(new Shortcut { Key = Key.F9, Title = "Zusammenfassung", Action = () => { _zeigeZusammenfassung = true; k.Session.Speichern(); Aktualisieren(); } });
         status.Add(new Shortcut { Key = Key.F10, Title = "Beenden", Action = () => app.RequestStop() });
 
         fenster.Add(kopf, links, rechts, status);
@@ -234,10 +238,10 @@ sealed class GuiOberflaeche(Kontext k)
         t.AppendLine("Willkommen beim Diagnostiker.");
         t.AppendLine();
         t.AppendLine("Pfeiltasten: Prüfung wählen        Enter: Prüfung ausführen");
-        t.AppendLine("F5: Schnellprüfung (alle harmlosen Standardtests)");
-        if (k.NetzwerkEinrichten) t.AppendLine("F6: Netzwerk verbinden (WLAN/LAN einrichten)");
-        t.AppendLine("F7: Notiz zum Protokoll        F8: Zusammenfassung");
-        t.AppendLine("F9 oder Tab: zwischen Liste und Einzelheiten wechseln (dort mit Pfeiltasten und Bild-auf/Bild-ab blättern)");
+        t.AppendLine("F6: Schnellprüfung (alle harmlosen Standardtests)");
+        if (k.NetzwerkEinrichten) t.AppendLine("F7: Netzwerk verbinden (WLAN/LAN einrichten)");
+        t.AppendLine("F8: Notiz zum Protokoll        F9: Zusammenfassung");
+        t.AppendLine("Tab: zwischen Liste und Einzelheiten wechseln (dort mit Pfeiltasten und Bild-auf/Bild-ab blättern)");
         t.AppendLine("F10: Beenden");
         t.AppendLine();
         t.AppendLine($"Protokoll: {k.Session.Verzeichnis}");
@@ -291,12 +295,13 @@ sealed class GuiOberflaeche(Kontext k)
         string? ergebnis = null;
         var dialog = new Dialog { Title = titel, Width = Dim.Percent(70), Height = 11 };
         dialog.SetScheme(_schema);
+        dialog.ShadowStyle = ShadowStyles.None;
         var text = new TextField { Text = standard, X = 1, Y = 3, Width = Dim.Fill(1) };
-        var ok = new Button { Text = "OK", IsDefault = true };
+        var ok = new Button { Text = "OK", IsDefault = true, NoDecorations = true, ShadowStyle = ShadowStyles.None };
         ok.Accepting += (_, e) => { ergebnis = text.Text; app.RequestStop(); e.Handled = true; };
         // Enter im Eingabefeld übernimmt den Text (sonst würde der zuletzt hinzugefügte Knopf, „Abbrechen“, ausgelöst).
         text.Accepting += (_, e) => { ergebnis = text.Text; app.RequestStop(); e.Handled = true; };
-        var abbrechen = new Button { Text = "Abbrechen" };
+        var abbrechen = new Button { Text = "Abbrechen", NoDecorations = true, ShadowStyle = ShadowStyles.None };
         abbrechen.Accepting += (_, e) => { ergebnis = null; app.RequestStop(); e.Handled = true; };
         dialog.AddButton(ok);
         dialog.AddButton(abbrechen);

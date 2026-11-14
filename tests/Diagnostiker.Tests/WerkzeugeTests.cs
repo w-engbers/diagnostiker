@@ -30,3 +30,21 @@ public class WerkzeugeTests
         Assert.True(s.Admin);
     }
 }
+
+public class WindowsKodierungTests
+{
+    /// <summary>Am 14.11.2026 zeigte ein Windows-Modul „Pr?fung“: Gibt ein PowerShell-Skript Umlaute aus, ohne die Ausgabe auf UTF-8 zu stellen,
+    /// kommen sie in der Windows-Kodierung an und werden falsch gelesen.</summary>
+    [Fact]
+    public void PowerShell_Schritte_mit_Umlauten_stellen_die_Ausgabe_auf_UTF8()
+    {
+        var (module, _) = ModulLader.Laden(ModulLader.ModulVerzeichnisFinden()!);
+        foreach (var m in module)
+            foreach (var s in m.Schritte.Where(x => x.Os == "windows" && x.Befehl.StartsWith("powershell", StringComparison.OrdinalIgnoreCase)))
+            {
+                var skript = s.Argumente.Last();
+                if (skript.Any(c => c > 127))
+                    Assert.True(skript.Contains("OutputEncoding", StringComparison.Ordinal), $"{m.Id}: PowerShell-Skript mit Umlauten ohne OutputEncoding");
+            }
+    }
+}
