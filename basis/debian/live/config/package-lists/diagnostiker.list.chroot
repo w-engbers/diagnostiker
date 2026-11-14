@@ -58,6 +58,11 @@ printer-driver-postscript-hp
 foomatic-db-compressed-ppds
 openprinting-ppds
 ipp-usb
+
+# Scanner (SANE; sane-airscan findet Netzwerkscanner ohne Treiber über mDNS)
+sane-utils
+sane-airscan
+avahi-daemon
 exfatprogs
 dosfstools
 efibootmgr

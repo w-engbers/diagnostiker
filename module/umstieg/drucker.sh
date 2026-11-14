@@ -92,6 +92,13 @@ virtuell() { # Name, Anschluss
     printf '%s|%s' "$1" "$2" | grep -qiE 'Microsoft Print to PDF|Microsoft XPS|OneNote|Fax|PDF|Snagit|Send to|Document Writer|^[^|]*\|(nul:|PORTPROMPT:|FILE:|XPSPort:|SHRFAX:|Microsoft Document Imaging)'
 }
 
+# Scanner: Netzwerk- und WLAN-Scanner arbeiten unter Linux meist treiberlos über sane-airscan (eSCL/AirScan, auch das „WSD“ vieler Windows-Geräte).
+# USB-Scanner brauchen einen SANE-Treiber für das Modell. Offline lässt sich das nicht sicher beurteilen: also Hinweis plus Test mit dem Gerät.
+bewerte_scanner() { # Name
+    if printf '%s' "$1" | grep -qiE 'camera|kamera|webcam|WIA|virtual'; then return; fi
+    info "Scanner/Bildgerät „$1“: unter Linux läuft es meist über SANE: Geräte im WLAN oder Netzwerk (auch Multifunktionsgeräte) arbeiten ohne Treiber über sane-airscan, bei USB-Scannern hängt es vom Modell ab. Mit dem Gerät testen (im Live-System „Scanner im Netz suchen“ oder per USB anschließen)."
+}
+
 analysiere() { # Einhängepunkt, Gerät
     w=$1; dev=$2
     wdir=$(pfad_ci "$w" windows) || return 1
@@ -123,6 +130,23 @@ analysiere() { # Einhängepunkt, Gerät
         bewerte_drucker "$name" "${treiber:-$name}" "$port"
     done < "$tmp/druckernamen"
     info "In der Windows-Registrierung ($satz) gelesen: $gesamt Druckerwarteschlange(n), davon $virtuelle virtuelle (PDF, XPS, Fax, OneNote …)."
+
+    # Scanner: Bildverarbeitungsgeräte (Geräteklasse {6BDD1FC6-…}); jeder Eintrag 0000, 0001 … hat eine Beschreibung
+    klasse="\\$satz\\Control\\Class\\{6BDD1FC6-810F-11D0-BEC7-08002BE2092F}"
+    printf 'cd %s\nls\n' "$klasse" | hivexsh -u "$hive" 2>/dev/null | sed 's/\r$//' | grep -E '^[0-9]{4}$' > "$tmp/scannernummern"
+    : > "$tmp/scannernamen"
+    while IFS= read -r nr; do
+        [ -n "$nr" ] || continue
+        printf 'cd %s\ncd %s\nlsval\n' "$klasse" "$nr" | hivexsh -u "$hive" 2>/dev/null | sed -n 's/^"DriverDesc"="\(.*\)"$/\1/p' >> "$tmp/scannernamen"
+    done < "$tmp/scannernummern"
+    sort -u "$tmp/scannernamen" | grep -v '^$' > "$tmp/scanner"
+    if [ -s "$tmp/scanner" ]; then
+        echo
+        info "In Windows eingerichtete Scanner und Bildgeräte (Registrierung):"
+        while IFS= read -r sname; do
+            bewerte_scanner "$sname"
+        done < "$tmp/scanner"
+    fi
     [ "$anzahl" -gt 0 ] || info "Auf $dev sind keine echten Drucker eingerichtet (nur virtuelle wie „Microsoft Print to PDF“ oder gar keine)."
     return 0
 }
@@ -159,6 +183,21 @@ if command -v lpinfo >/dev/null 2>&1; then
     fi
 fi
 
+# ---- Jetzt erreichbare Scanner (SANE: USB und Netzwerk über sane-airscan) --------------------------------------------------------
+if command -v scanimage >/dev/null 2>&1; then
+    scanimage -L 2>/dev/null | grep '^device' > "$tmp/scannerlive"
+    echo
+    if [ -s "$tmp/scannerlive" ]; then
+        info "Scanner, die jetzt erreichbar sind (USB oder Netzwerk):"
+        while IFS= read -r z; do
+            beschr=$(printf '%s' "$z" | sed "s/^device \`[^']*' is a //")
+            ok "Scanner gefunden: $beschr (SANE erkennt ihn, er lässt sich unter Linux nutzen)."
+        done < "$tmp/scannerlive"
+    else
+        info "Zurzeit ist kein Scanner erreichbar. Für den Test den Scanner einschalten (Netzwerk/WLAN) oder per USB anschließen und das Modul erneut ausführen."
+    fi
+fi
+
 echo
-info "Hinweis: Diese Prüfung vergleicht nur Namen mit der Treiberdatenbank. Ob ein Drucker (und Scanner) wirklich funktioniert, zeigt erst ein Test: Drucker anschließen oder einschalten, im Live-System einrichten und eine Testseite drucken."
+info "Hinweis: Die Druckerprüfung vergleicht nur Namen mit der Treiberdatenbank. Ob ein Drucker oder Scanner wirklich funktioniert, zeigt erst ein Test mit dem Gerät: einschalten, im Live-System einrichten und eine Testseite drucken beziehungsweise einen Scan machen."
 exit 0

@@ -13,6 +13,8 @@ public sealed class DruckerModulTests : IDisposable
     readonly List<(string Name, string Treiber, string Port)> _drucker = [];
     string _modelle = "";
     string _geraete = "";
+    readonly List<string> _scanner = [];
+    string _scanimage = "";
     bool _mitWindows = true;
 
     public DruckerModulTests()
@@ -49,6 +51,9 @@ public sealed class DruckerModulTests : IDisposable
         File.WriteAllText(Path.Combine(_ordner, "werte.txt"), string.Join('\n', _drucker.SelectMany(d => new[] { $"{d.Name}|Printer Driver|{d.Treiber}", $"{d.Name}|Port|{d.Port}" })) + "\n");
         File.WriteAllText(Path.Combine(_ordner, "modelle.txt"), _modelle.Length == 0 ? "" : _modelle + "\n");
         File.WriteAllText(Path.Combine(_ordner, "geraete.txt"), _geraete + "\n");
+        File.WriteAllText(Path.Combine(_ordner, "scannerreg.txt"), string.Join('\n', _scanner.Select((n, i) => $"{i:D4}|{n}")) + "\n");
+        File.WriteAllText(Path.Combine(_ordner, "scanimage.txt"), _scanimage);
+        Attrappe("scanimage", $"cat '{_ordner}/scanimage.txt'");
         Attrappe("systemctl", "exit 0");   // den Druckdienst startet der Test nicht wirklich
         Attrappe("sleep", "exit 0");
         Attrappe("lsblk", $"cat '{_ordner}/lsblk.txt'");
@@ -59,10 +64,14 @@ public sealed class DruckerModulTests : IDisposable
             while IFS= read -r z; do
               case "$z" in
                 "cd "*) a=${z#cd }; case "$a" in \\*) pfad=$a ;; *) pfad="$pfad\\$a" ;; esac ;;
-                ls) cat '{{_ordner}}/namen.txt' ;;
+                ls) case "$pfad" in
+                      *6BDD1FC6*) cut -d'|' -f1 '{{_ordner}}/scannerreg.txt'; echo Properties ;;
+                      *) cat '{{_ordner}}/namen.txt' ;;
+                    esac ;;
                 lsval)
                   case "$pfad" in
                     *\\Select) echo '"Current"=dword:00000001' ;;
+                    *6BDD1FC6*\\[0-9][0-9][0-9][0-9]) nr="${pfad##*\\}"; grep "^$nr|" '{{_ordner}}/scannerreg.txt' | cut -d'|' -f2 | while read -r d; do printf '"DriverDesc"="%s"\n' "$d"; done ;;
                     *) n="${pfad##*\\}"; grep -F "$n|" '{{_ordner}}/werte.txt' | while IFS='|' read -r nn k w; do printf '"%s"="%s"\n' "$k" "$w"; done ;;
                   esac ;;
               esac
@@ -168,5 +177,30 @@ public sealed class DruckerModulTests : IDisposable
         _modelle = "";
         var aus = Lauf();
         Assert.Contains("Treiberdatenbank für Drucker (CUPS) ist im Live-System nicht verfügbar", aus);
+    }
+
+    [Fact]
+    public void Windows_Scanner_werden_aus_der_Registrierung_gelesen_Kameras_nicht()
+    {
+        Drucker("Brother HL-L2350DW series", "Brother HL-L2350DW series", "USB001");
+        _scanner.Add("EPSON XP-2200 Series");
+        _scanner.Add("Integrated Camera");
+        var aus = Lauf();
+        Assert.Contains("In Windows eingerichtete Scanner und Bildgeräte", aus);
+        Assert.Contains("Scanner/Bildgerät „EPSON XP-2200 Series“: unter Linux läuft es meist über SANE", aus);
+        Assert.DoesNotContain("Integrated Camera", aus);
+    }
+
+    [Fact]
+    public void Erreichbare_Scanner_werden_gemeldet_sonst_ein_Hinweis()
+    {
+        _mitWindows = false;
+        _scanimage = "device `airscan:e0:EPSON XP-2200 Series' is a eSCL EPSON XP-2200 Series ip=192.168.1.5\n";
+        var aus = Lauf();
+        Assert.Contains("[OK] Scanner gefunden: eSCL EPSON XP-2200 Series ip=192.168.1.5", aus);
+
+        _scanimage = "";
+        aus = Lauf();
+        Assert.Contains("Zurzeit ist kein Scanner erreichbar", aus);
     }
 }

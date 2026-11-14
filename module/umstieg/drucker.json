@@ -1,8 +1,8 @@
 {
   "id": "umstieg.drucker",
-  "titel": "Drucker: laufen sie unter Linux?",
+  "titel": "Drucker und Scanner: laufen sie unter Linux?",
   "gruppe": "Umstieg auf Linux",
-  "beschreibung": "Liest nur lesend die in Windows eingerichteten Drucker (aus der Windows-Registrierung der Platte) und prüft, ob das Live-System dafür einen Treiber hat. Listet außerdem Drucker auf, die gerade angeschlossen oder im Netz sichtbar sind. Reine Windows-Drucker (GDI/Host-based) werden als kritisch markiert. Bei BitLocker wird die Platte mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert). Den endgültigen Beweis liefert nur ein Test mit dem Drucker.",
+  "beschreibung": "Liest nur lesend die in Windows eingerichteten Drucker und Scanner (aus der Windows-Registrierung der Platte) und prüft, ob das Live-System für die Drucker einen Treiber hat. Listet außerdem Drucker und Scanner auf, die gerade angeschlossen oder im Netz erreichbar sind (Scanner über SANE, im Netzwerk treiberlos mit sane-airscan). Reine Windows-Drucker (GDI/Host-based) werden als kritisch markiert. Bei BitLocker wird die Platte mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert). Den endgültigen Beweis liefert nur ein Test mit dem Gerät.",
   "schnellpruefung": false,
   "parameter": [
     {
