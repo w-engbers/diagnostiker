@@ -1,0 +1,185 @@
+{
+  "id": "platte.verschluesselung",
+  "titel": "Verschlüsselung (BitLocker, LUKS)",
+  "gruppe": "Datenträger",
+  "beschreibung": "Zeigt, welche Laufwerke verschlüsselt sind. Windows: BitLocker-Status je Laufwerk (Schutz aktiv, ausgesetzt, gesperrt, Wiederherstellungskennwort vorhanden); Linux-Live-System: erkennt BitLocker- und LUKS-Partitionen des Rechners. Nur lesend. Den Wiederherstellungsschlüssel kann das Programm nicht anzeigen, er steht im Microsoft-Konto.",
+  "schnellpruefung": true,
+  "schritte": [
+    {
+      "titel": "BitLocker-Status",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8\ntry { $v=@(Get-CimInstance -Namespace 'root\\CIMV2\\Security\\MicrosoftVolumeEncryption' -ClassName Win32_EncryptableVolume -ErrorAction Stop) } catch { $v=$null }\nif($null -eq $v){\n  'BITLOCKER_NICHT_ABFRAGBAR'\n  try { $roh=@(manage-bde -status 2>&1) } catch { $roh=@() }\n  if($roh.Count -gt 0){ 'Ausgabe von manage-bde -status:'; $roh | Select-Object -First 40 | ForEach-Object { '  '+$_ } }\n  exit 0\n}\nif($v.Count -eq 0){ 'Keine Laufwerke gefunden, die sich verschlüsseln lassen.'; exit 0 }\n$methoden=@{0='keine';1='AES 128 mit Diffuser';2='AES 256 mit Diffuser';3='AES 128';4='AES 256';5='Hardware';6='XTS-AES 128';7='XTS-AES 256'}\n$verschluesselt=0\nforeach($x in $v){\n  $name=$x.DriveLetter; if(-not $name){ $name=$x.DeviceID }\n  $schutz=(Invoke-CimMethod -InputObject $x -MethodName GetProtectionStatus).ProtectionStatus\n  $konv=Invoke-CimMethod -InputObject $x -MethodName GetConversionStatus\n  $sperre=(Invoke-CimMethod -InputObject $x -MethodName GetLockStatus).LockStatus\n  $meth=(Invoke-CimMethod -InputObject $x -MethodName GetEncryptionMethod).EncryptionMethod\n  $kennwort=@((Invoke-CimMethod -InputObject $x -MethodName GetKeyProtectors -Arguments @{KeyProtectorType=3}).VolumeKeyProtectorID).Count\n  $art=$methoden[[int]$meth]; if(-not $art){ $art='unbekannt' }\n  switch([int]$konv.ConversionStatus){\n    0 { 'Laufwerk '+$name+' nicht verschlüsselt.' }\n    2 { $verschluesselt++; 'Laufwerk '+$name+' wird gerade verschlüsselt ('+$konv.EncryptionPercentage+' %).' }\n    3 { 'Laufwerk '+$name+' wird gerade entschlüsselt ('+$konv.EncryptionPercentage+' %).' }\n    4 { $verschluesselt++; 'Laufwerk '+$name+' Verschlüsselung angehalten ('+$konv.EncryptionPercentage+' %).' }\n    5 { 'Laufwerk '+$name+' Entschlüsselung angehalten ('+$konv.EncryptionPercentage+' %).' }\n    default {\n      $verschluesselt++\n      if([int]$sperre -eq 1){ 'Laufwerk '+$name+' verschlüsselt und gesperrt (Methode '+$art+'): ohne Schlüssel nicht lesbar.' }\n      elseif([int]$schutz -eq 1){ 'Laufwerk '+$name+' verschlüsselt, Schutz aktiv (Methode '+$art+').' }\n      else { 'Laufwerk '+$name+' verschlüsselt, Schutz ausgesetzt (Methode '+$art+'): Windows hat BitLocker vorübergehend angehalten, z. B. für ein Update.' }\n      if($kennwort -eq 0 -and [int]$konv.ConversionStatus -eq 1){ 'Laufwerk '+$name+' kein Wiederherstellungskennwort vorhanden: Bei Problemen sind die Daten ohne Schlüssel verloren.' }\n    }\n  }\n}\nif($verschluesselt -gt 0){ 'Hinweis: Den Wiederherstellungsschlüssel (48 Ziffern) bereithalten: im Microsoft-Konto unter account.microsoft.com/devices/recoverykey oder auf einem Ausdruck.' }"
+      ],
+      "admin": true,
+      "timeoutSekunden": 60,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "LSBLK_FEHLT",
+          "status": "Uebersprungen",
+          "meldung": "lsblk ist nicht vorhanden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "BITLOCKER_NICHT_ABFRAGBAR",
+          "status": "Info",
+          "meldung": "BitLocker lässt sich auf diesem Rechner nicht abfragen (Windows-Edition ohne BitLocker-Verwaltung oder fehlende Rechte)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "nicht verschlüsselt.",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Keine verschlüsselten Partitionen",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "verschlüsselt, Schutz aktiv",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "wird gerade",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "angehalten (",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Schutz ausgesetzt",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "und gesperrt",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "kein Wiederherstellungskennwort",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "mit BitLocker verschlüsselt",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "mit LUKS verschlüsselt",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Verschlüsselte Partitionen",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "-c",
+        "command -v lsblk >/dev/null 2>&1 || { echo LSBLK_FEHLT; exit 0; }\naus=$(lsblk -rpno NAME,FSTYPE,SIZE,TYPE 2>/dev/null)\nn=0\nprintf '%s\\n' \"$aus\" | while read -r name fs size typ; do\n  case \"$fs\" in\n    BitLocker)   echo \"Partition $name ($size): mit BitLocker verschlüsselt, ohne Wiederherstellungsschlüssel nicht lesbar.\" ;;\n    crypto_LUKS) echo \"Partition $name ($size): mit LUKS verschlüsselt, ohne Kennwort nicht lesbar.\" ;;\n  esac\ndone > /tmp/verschluesselung.$$\nif [ -s /tmp/verschluesselung.$$ ]; then\n  cat /tmp/verschluesselung.$$\n  echo \"Hinweis: Bei BitLocker den Wiederherstellungsschlüssel (48 Ziffern) bereithalten: im Microsoft-Konto unter account.microsoft.com/devices/recoverykey oder auf einem Ausdruck.\"\nelse\n  echo \"Keine verschlüsselten Partitionen (BitLocker, LUKS) gefunden.\"\nfi\nrm -f /tmp/verschluesselung.$$\nexit 0"
+      ],
+      "timeoutSekunden": 30,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "LSBLK_FEHLT",
+          "status": "Uebersprungen",
+          "meldung": "lsblk ist nicht vorhanden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "BITLOCKER_NICHT_ABFRAGBAR",
+          "status": "Info",
+          "meldung": "BitLocker lässt sich auf diesem Rechner nicht abfragen (Windows-Edition ohne BitLocker-Verwaltung oder fehlende Rechte)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "nicht verschlüsselt.",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Keine verschlüsselten Partitionen",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "verschlüsselt, Schutz aktiv",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "wird gerade",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "angehalten (",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "Schutz ausgesetzt",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "und gesperrt",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "kein Wiederherstellungskennwort",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "mit BitLocker verschlüsselt",
+          "status": "Info",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "mit LUKS verschlüsselt",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}

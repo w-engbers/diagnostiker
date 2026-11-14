@@ -2,9 +2,10 @@ DIAGNOSTIKER - Pruefstick
 =========================
 
 A) Rechner startet nicht oder soll ohne installiertes System geprueft werden
-   -> Stick einstecken, Rechner starten, Boot-Menue des Rechners oeffnen (oft F12, F9, F8, Esc oder Entf)
-      und den USB-Stick waehlen. Nach wenigen Sekunden startet der Diagnostiker von selbst.
-   -> Secure Boot muss NICHT ausgeschaltet werden.
+   -> Stick einstecken, Rechner starten und das einmalige Boot-Menue des Rechners oeffnen (Tasten siehe unten),
+      den USB-Stick waehlen (bei UEFI-Rechnern: Eintrag mit "UEFI" im Namen). Nach wenigen Sekunden startet der
+      Diagnostiker von selbst.
+   -> Secure Boot muss NICHT ausgeschaltet werden. Im BIOS bitte nichts dauerhaft aendern.
 
 B) Rechner laeuft (Windows)
    -> Stick einstecken, im Laufwerk "DIAGDATEN" die Datei Start-Windows.cmd doppelt anklicken
@@ -13,5 +14,38 @@ B) Rechner laeuft (Windows)
 C) Rechner laeuft (Linux)
    -> Im Laufwerk DIAGDATEN:  sh start-linux.sh
 
+Bedienung
+---------
+   Pfeiltasten, Enter  Pruefung waehlen und ausfuehren
+   Tab                 zwischen Liste (oben) und Einzelheiten (unten) wechseln; dort mit Pfeiltasten und Bild-auf/Bild-ab blaettern
+   F6                  Schnellpruefung (alle harmlosen Standardtests), danach Zusammenfassung
+   F7                  Netzwerk verbinden (nur im Live-System, WLAN/LAN einrichten)
+   F8                  Notiz zum Protokoll (z. B. Name des Besitzers, Beschwerde)
+   F9                  Zusammenfassung
+   F10                 Beenden (der Bericht wird gespeichert)
+   Hinweis: F1 bis F5 sind nicht belegt (die Linux-Konsole sendet dafuer andere Tastenfolgen).
+
 Ergebnisse stehen im Ordner "protokolle" (pro Pruefung ein Ordner mit bericht.md, session.json und Rohdaten).
 Der Diagnostiker aendert nichts am gepruefen Rechner, solange keine ausdrueckliche Rueckfrage bestaetigt wird.
+
+Wenn der Rechner nicht vom Stick startet
+----------------------------------------
+Tasten fuer das einmalige Boot-Menue direkt nach dem Einschalten (mehrfach tippen, bei Notebooks oft zusammen mit Fn):
+   Lenovo   F12 oder Fn+F12 (Novo-Taste/-Loch, wo vorhanden)     HP      Esc, dann F9
+   Dell     F12                                                   Acer    F12 (BIOS: F2; ggf. "F12 Boot Menu" im BIOS einschalten)
+   ASUS     Esc oder F8                                           MSI     F11
+   Samsung  Esc oder F10                                          Medion  F12 oder Esc
+Funktioniert keine Taste (haeufig bei Windows 10/11 wegen "Schnellstart"):
+   1. Windows normal oeffnen, Umschalt-Taste halten und im Startmenue "Neu starten" waehlen
+      (oder in einer Eingabeaufforderung als Administrator:  shutdown /r /o /t 0).
+   2. Im blauen Menue: Problembehandlung -> Erweiterte Optionen -> "Ein Geraet verwenden" (USB-Stick waehlen)
+      oder "UEFI-Firmwareeinstellungen". Meldet "shutdown /r /fw" den Fehler 203, kann der Rechner das nicht.
+   3. Alternativ den Rechner mit gehaltener Ein-Taste (etwa 10 Sekunden) vollstaendig ausschalten und dann
+      wie oben die Taste fuer das Boot-Menue tippen.
+
+Verschluesselte Laufwerke (BitLocker)
+-------------------------------------
+Windows 11 verschluesselt oft automatisch ("Geraeteverschluesselung"). Das einmalige Boot-Menue loest normalerweise keine
+Abfrage aus; Aenderungen im BIOS (Secure Boot, Boot-Reihenfolge) koennen es tun. Der Wiederherstellungsschluessel (48 Ziffern)
+steht im Microsoft-Konto des Besitzers (account.microsoft.com/devices/recoverykey) oder auf einem Ausdruck: vorher bereithalten.
+Der Diagnostiker zeigt unter "Verschluesselung (BitLocker, LUKS)", welche Laufwerke verschluesselt sind.
