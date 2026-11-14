@@ -108,6 +108,23 @@ public sealed class DruckerModulTests : IDisposable
     }
 
     [Fact]
+    public void Modellnummer_muss_als_eigenes_Wort_passen_M15_ist_nicht_M1522n()
+    {
+        _modelle = "foomatic:HP-LaserJet_M1522n.ppd HP LaserJet M1522n MFP Foomatic/Postscript\ndrv:///hpcups.drv/hp-laserjet_pro_m15w.ppd HP LaserJet Pro M15w, hpcups 3.23.12";
+        Drucker("HP LaserJet Pro M15w", "HP LaserJet Pro M15 PCL-6", "USB002");
+        var aus = Lauf();
+        Assert.Contains("Treiber im Live-System vorhanden: HP LaserJet Pro M15w, hpcups", aus);
+        Assert.DoesNotContain("M1522n", aus);
+
+        _drucker.Clear();
+        _modelle = "foomatic:HP-LaserJet_M1522n.ppd HP LaserJet M1522n MFP Foomatic/Postscript";
+        Drucker("HP LaserJet Pro M15w", "HP LaserJet Pro M15 PCL-6", "USB002");
+        aus = Lauf();
+        Assert.Contains("[WARNUNG] Drucker „HP LaserJet Pro M15w“", aus);
+        Assert.Contains("generischen PCL- oder PostScript-Treiber", aus);
+    }
+
+    [Fact]
     public void Nur_virtuelle_Drucker_ergibt_eine_Information()
     {
         Drucker("Microsoft Print to PDF", "Microsoft Print To PDF", "PORTPROMPT:");

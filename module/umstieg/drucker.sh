@@ -37,14 +37,28 @@ modell_token() {
     printf '%s\n' "$1" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /[0-9]/ && length($i) >= 3 && $i !~ /^[0-9]+[.][0-9]+$/) { print $i; exit } }'
 }
 marke_token() { printf '%s\n' "$1" | awk '{ print tolower($1) }' | tr -cd 'a-z0-9'; }
-# Erste Zeile der Treiberdatenbank, die Modellnummer (und, wenn bekannt, Marke) enthält
+# Erste Zeile der Treiberdatenbank, in der die Modellnummer als eigenes Wort vorkommt (und, wenn bekannt, die Marke).
+# "M15" passt auf "M15w", aber nicht auf "M1522n": Das Wort der Datenbank darf höchstens zwei Buchstaben länger oder kürzer sein.
 treiber_suche() { # Name
     [ "$HAT_DB" = 1 ] || return 1
     modell=$(modell_token "$1" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9')
     [ -n "$modell" ] || return 1
     marke=$(marke_token "$1")
-    t=$(awk -v m="$modell" -v b="$marke" '{ l = tolower($0); gsub(/[^a-z0-9]/, "", l); if (index(l, m) && (b == "" || index(l, b))) { print $0; exit } }' "$tmp/modelle")
-    [ -n "$t" ] || t=$(awk -v m="$modell" '{ l = tolower($0); gsub(/[^a-z0-9]/, "", l); if (index(l, m)) { print $0; exit } }' "$tmp/modelle")
+    suche() { # Marke ("" = egal)
+        awk -v m="$modell" -v b="$1" '
+            function norm(s) { s = tolower(s); gsub(/[^a-z0-9]/, "", s); return s }
+            function passt(t, m,   d) {
+                if (t == m) return 1
+                if (index(t, m) == 1) { d = substr(t, length(m) + 1); return (length(d) <= 2 && d ~ /^[a-z]+$/) }
+                if (length(t) >= 4 && index(m, t) == 1) { d = substr(m, length(t) + 1); return (length(d) <= 2 && d ~ /^[a-z]+$/) }
+                return 0
+            }
+            { n = split($0, w, /[ ,\/()_.:]+/); gef = 0; brand = (b == "")
+              for (i = 1; i <= n; i++) { t = norm(w[i]); if (t == "") continue; if (passt(t, m)) gef = 1; if (b != "" && index(t, b) == 1) brand = 1 }
+              if (gef && brand) { print $0; exit } }' "$tmp/modelle"
+    }
+    t=$(suche "$marke")
+    [ -n "$t" ] || t=$(suche "")
     [ -n "$t" ] || return 1
     # Kurzform: Beschreibung ohne die Treiberkennung am Anfang
     printf '%s' "$t" | sed 's/^[^ ]* //' | cut -c1-110
@@ -69,7 +83,7 @@ bewerte_drucker() { # Anzeigename, Treibername, Anschluss
     elif [ "$art" = Netzwerk ]; then
         info "Drucker „$name“ ($art): kein eigener Treiber in der Datenbank gefunden, aber Netzwerkdrucker arbeiten meist ohne Treiber (IPP/AirPrint). Mit dem Drucker testen."
     else
-        warn "Drucker „$name“ ($art): kein Treiber im Live-System gefunden. Auf der Seite des Herstellers und auf openprinting.org nachsehen; neuere USB-Drucker laufen oft treiberlos (IPP über USB). Mit dem Drucker testen."
+        warn "Drucker „$name“ ($art): kein Treiber im Live-System gefunden. Auf der Seite des Herstellers und auf openprinting.org nachsehen; neuere USB-Drucker laufen oft treiberlos (IPP über USB), und viele Laserdrucker lassen sich mit einem generischen PCL- oder PostScript-Treiber betreiben. Mit dem Drucker testen."
     fi
 }
 

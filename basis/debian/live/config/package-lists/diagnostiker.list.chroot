@@ -32,10 +32,31 @@ cryptsetup-bin
 libevtx-utils
 libhivex-bin
 
-# Drucker (für den Umstiegs-Check: Treiberdatenbank, ohne Drucker einzurichten)
+# Drucker (für den Umstiegs-Check: Treiberdatenbank, ohne Drucker einzurichten). Die Treiberpakete einzeln nennen:
+# printer-driver-all empfiehlt sie nur.
 cups
 cups-client
-printer-driver-all
+printer-driver-gutenprint
+hplip
+printer-driver-brlaser
+printer-driver-escpr
+printer-driver-splix
+printer-driver-pxljr
+printer-driver-foo2zjs
+printer-driver-ptouch
+printer-driver-pnm2ppa
+printer-driver-m2300w
+printer-driver-sag-gdi
+printer-driver-c2050
+printer-driver-c2esp
+printer-driver-cjet
+printer-driver-dymo
+printer-driver-fujixerox
+printer-driver-min12xxw
+printer-driver-oki
+printer-driver-postscript-hp
+foomatic-db-compressed-ppds
+openprinting-ppds
 ipp-usb
 exfatprogs
 dosfstools
