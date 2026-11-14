@@ -1,0 +1,88 @@
+{
+  "id": "umstieg.windows11",
+  "titel": "Windows 11: ist ein Upgrade möglich?",
+  "gruppe": "Umstieg auf Linux",
+  "beschreibung": "Prüft nur lesend die Mindestvoraussetzungen von Windows 11: 64-Bit-Prozessor (mit Faustregel zur unterstützten Generation), Arbeitsspeicher ab 4 GiB, Platte ab 64 GB, UEFI mit Secure Boot, TPM 2.0 und unter Windows 10 die Version 22H2. Unter Windows zeigt es die Lage des laufenden Rechners, im Live-System die Hardware. Die Prozessorliste von Microsoft ist maßgeblich: Endgültig entscheidet die Microsoft-„PC-Integritätsprüfung“. Grafik und Bildschirm werden nicht geprüft.",
+  "schnellpruefung": false,
+  "schritte": [
+    {
+      "titel": "Windows-11-Voraussetzungen",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "[Console]::OutputEncoding=[Text.Encoding]::UTF8\n$mangel=0\nfunction Mangel($t){ '[WARNUNG] '+$t; $script:mangel++ }\n$os=Get-CimInstance Win32_OperatingSystem; $build=[int]$os.BuildNumber\nif($build -ge 22000){ '[INFO] Auf diesem Rechner läuft bereits Windows 11 ('+$os.Caption+', Build '+$build+'). Die Prüfung zeigt, ob er die Mindestvoraussetzungen erfüllt.' }\nelse {\n  '[INFO] Windows 10: '+$os.Caption+', Build '+$build+'. Der Support für Windows 10 endete am 14.10.2025 (Sicherheitsupdates gibt es nur noch mit dem kostenpflichtigen Erweiterungsprogramm).'\n  if($build -lt 19045){ Mangel ('Für das Upgrade auf Windows 11 muss zuerst Windows 10, Version 22H2 installiert sein (Build 19045 oder höher). Hier ist es Build '+$build+'.') }\n}\n# Prozessor\n$cpu=Get-CimInstance Win32_Processor | Select-Object -First 1\n$name=($cpu.Name -replace '\\s+',' ').Trim()\n'[INFO] Prozessor: '+$name+' ('+$cpu.NumberOfCores+' Kerne, '+$cpu.MaxClockSpeed+' MHz).'\nif($cpu.Architecture -ne 9 -and $cpu.Architecture -ne 12){ Mangel 'Der Prozessor ist keine 64-Bit-CPU: Windows 11 gibt es nur für 64 Bit.' }\nif($cpu.NumberOfCores -lt 2){ Mangel 'Der Prozessor hat weniger als 2 Kerne (Windows 11 verlangt mindestens 2).' }\nif($cpu.MaxClockSpeed -lt 1000){ Mangel 'Der Prozessor taktet unter 1 GHz (Windows 11 verlangt mindestens 1 GHz).' }\n$gen=$null; $urteil='unklar'\nif($name -match 'Core\\(TM\\) Ultra|Ryzen AI|Snapdragon'){ $urteil='ok' }\nelseif($name -match 'Core\\(TM\\) i[3579]-(\\d{4,5})'){ $n=$Matches[1]; $gen= if($n.Length -eq 5 -or $n.StartsWith('1')){[int]$n.Substring(0,2)}else{[int]$n.Substring(0,1)}; if($gen -ge 8){$urteil='ok'}else{$urteil='alt'} }\nelseif($name -match 'Ryzen\\s+(?:Threadripper\\s+)?(?:PRO\\s+)?(?:[3579]\\s+)?(?:PRO\\s+)?(\\d)(\\d{3})'){ $gen=[int]$Matches[1]; if($gen -ge 2){$urteil='ok'}else{$urteil='alt'} }\nif($urteil -eq 'ok'){ '[OK] Prozessor: gehört nach der Faustregel zu den von Windows 11 unterstützten Generationen.' }\nelseif($urteil -eq 'alt'){ $marke= if($name -match 'Ryzen'){ 'AMD Ryzen '+$gen+'000' } else { 'Intel Core der '+$gen+'. Generation' }; Mangel ('Prozessor: '+$marke+' ist zu alt: Windows 11 unterstützt offiziell Intel Core ab der 8. Generation und AMD Ryzen ab der 2000er-Reihe. Das lässt sich nicht beheben.') }\nelse { '[INFO] Prozessor: nach der Faustregel nicht beurteilbar (Pentium, Celeron, Xeon, Athlon …). Die Prozessorliste von Microsoft entscheidet.' }\n# Arbeitsspeicher und Speicherplatz\n$ram=[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB,1)\nif($ram -lt 3.8){ Mangel ('Arbeitsspeicher: '+$ram+' GiB, Windows 11 verlangt mindestens 4 GiB.') } else { '[OK] Arbeitsspeicher: '+$ram+' GiB (mindestens 4 GiB nötig).' }\ntry {\n  $d=Get-Partition -DriveLetter ($env:SystemDrive.Substring(0,1)) -ErrorAction Stop | Get-Disk\n  $gb=[math]::Round($d.Size/1GB)\n  if($gb -lt 64){ Mangel ('Systemplatte: '+$gb+' GB, Windows 11 verlangt mindestens 64 GB.') } else { '[OK] Systemplatte: '+$gb+' GB (mindestens 64 GB nötig), Partitionsstil '+$d.PartitionStyle+'.' }\n  $partstil=[string]$d.PartitionStyle\n} catch { '[INFO] Systemplatte: Größe nicht lesbar.'; $partstil='' }\n# Firmware: UEFI, Secure Boot, TPM\n$uefi=$false; $sb=$null\ntry { $sb=Confirm-SecureBootUEFI -ErrorAction Stop; $uefi=$true } catch { if($_.Exception.Message -match 'nicht unterstützt|not supported|Cmdlet'){ $uefi=$false } else { $uefi=(Test-Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\SecureBoot\\State') } }\nif(-not $uefi){ Mangel 'Der Rechner startet im alten BIOS-Modus (Legacy/CSM). Windows 11 braucht UEFI mit Secure Boot: Das geht oft durch Umstellen der Festplatte auf GPT (MBR2GPT) und Aktivieren von UEFI im BIOS, birgt aber Risiken und gehört gesichert.' }\nelseif($sb -eq $true){ '[OK] Firmware: UEFI mit eingeschaltetem Secure Boot.' }\nelseif($sb -eq $false){ Mangel 'Firmware: UEFI, aber Secure Boot ist ausgeschaltet. Windows 11 braucht Secure Boot (im BIOS einschaltbar, wenn der Rechner es kann).' }\nelse { '[INFO] Firmware: UEFI, Secure Boot nicht lesbar.' }\n$tpm=$null\ntry { $tpm=Get-CimInstance -Namespace 'root\\cimv2\\security\\microsofttpm' -ClassName Win32_Tpm -ErrorAction Stop } catch { }\nif($null -eq $tpm){ Mangel 'Kein TPM-Chip erkannt. Windows 11 braucht TPM 2.0: Bei vielen Rechnern ist es im BIOS nur ausgeschaltet (Intel PTT, AMD fTPM, „Security Device“ aktivieren).' }\nelse {\n  $ver=([string]$tpm.SpecVersion -split ',')[0].Trim()\n  if($ver -like '2.*'){ '[OK] TPM: Version '+$ver+' vorhanden.' } else { Mangel ('TPM: Version '+$ver+', Windows 11 braucht TPM 2.0.') }\n}\n'[INFO] Nicht geprüft: Grafik (DirectX 12/WDDM 2.0) und Bildschirm (mindestens 720p, über 9 Zoll).'\n''\nif($mangel -eq 0 -and $urteil -eq 'unklar'){ '[WARNUNG] Gesamteindruck: Alle prüfbaren Voraussetzungen sind erfüllt, der Prozessor ließ sich aber nicht beurteilen. Die Prozessorliste von Microsoft („PC-Integritätsprüfung“) entscheidet.' }\nelseif($mangel -eq 0){ '[OK] Gesamteindruck: Dieser Rechner erfüllt nach diesem Test die Mindestvoraussetzungen für Windows 11. Endgültige Bestätigung: Microsoft „PC-Integritätsprüfung“ (PC Health Check) oder die Einstellung „Windows Update“.' }\nelse { '[WARNUNG] Gesamteindruck: Windows 11 ist hier voraussichtlich nicht ohne Weiteres möglich: '+$mangel+' Voraussetzung(en) nicht erfüllt (siehe oben). Bleibt der Rechner bei Windows 10, gibt es keine regulären Sicherheitsupdates mehr; Linux ist dann eine Alternative.' }"
+      ],
+      "admin": true,
+      "timeoutSekunden": 60,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Windows-11-Voraussetzungen (Hardware)",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "{module}/umstieg/windows11.sh"
+      ],
+      "timeoutSekunden": 30,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}
