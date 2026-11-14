@@ -100,17 +100,23 @@ analysiere() { # Einhängepunkt, Gerät
     gefunden=$((gefunden+1))
     echo
     info "Windows-Installation auf $dev: eingerichtete Drucker (aus der Windows-Registrierung)."
-    schluessel='\ControlSet001\Control\Print\Printers'
+    # Aktuellen Satz von Steuerungseinstellungen lesen (meist ControlSet001)
+    aktuell=$(hivexget "$hive" '\Select' Current 2>/dev/null | tr -cd '0-9')
+    [ -n "$aktuell" ] || aktuell=1
+    satz=$(printf 'ControlSet%03d' "$aktuell")
+    schluessel="\\$satz\\Control\\Print\\Printers"
     printf 'cd %s\nls\n' "$schluessel" | hivexsh "$hive" 2>/dev/null | sed 's/\r$//' > "$tmp/druckernamen"
-    anzahl=0
+    gesamt=$(grep -c . "$tmp/druckernamen")
+    anzahl=0; virtuelle=0
     while IFS= read -r name; do
         [ -n "$name" ] || continue
         treiber=$(hivexget "$hive" "$schluessel\\$name" "Printer Driver" 2>/dev/null)
         port=$(hivexget "$hive" "$schluessel\\$name" "Port" 2>/dev/null)
-        virtuell "$name" "$port" && continue
+        if virtuell "$name" "$port"; then virtuelle=$((virtuelle+1)); continue; fi
         anzahl=$((anzahl+1))
         bewerte_drucker "$name" "${treiber:-$name}" "$port"
     done < "$tmp/druckernamen"
+    info "In der Windows-Registrierung ($satz) gelesen: $gesamt Druckerwarteschlange(n), davon $virtuelle virtuelle (PDF, XPS, Fax, OneNote …)."
     [ "$anzahl" -gt 0 ] || info "Auf $dev sind keine echten Drucker eingerichtet (nur virtuelle wie „Microsoft Print to PDF“ oder gar keine)."
     return 0
 }

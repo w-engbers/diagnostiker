@@ -81,9 +81,10 @@ public sealed class DruckerModulTests : IDisposable
         Drucker("HP LaserJet Pro M15w", "HP LaserJet Pro M15 PCL-6", "USB002");
         Drucker("Microsoft Print to PDF", "Microsoft Print To PDF", "PORTPROMPT:");
         var aus = Lauf();
+        Assert.Contains("gelesen: 3 Druckerwarteschlange(n), davon 1 virtuelle", aus);
         Assert.Contains("[OK] Drucker „Brother HL-L2350DW series“ (USB): Treiber im Live-System vorhanden: Brother HL-L2350DW, using brlaser", aus);
         Assert.Contains("[OK] Drucker „HP LaserJet Pro M15w“ (USB): Treiber im Live-System vorhanden: HP LaserJet Pro M15w", aus);
-        Assert.DoesNotContain("PDF", aus.Replace("virtuelle wie „Microsoft Print to PDF“", ""));
+        Assert.DoesNotContain("Drucker „Microsoft Print to PDF“", aus);   // virtuelle Drucker werden nicht bewertet
         Assert.Equal(Status.Ok, Bewerten(aus));
     }
 

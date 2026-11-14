@@ -92,7 +92,7 @@ else
 fi
 
 # ---- Kamera, Touchpad -----------------------------------------------------------------------------------------------
-kam=$(for d in "$SYS"/class/video4linux/video*; do [ -r "$d/name" ] && cat "$d/name"; done 2>/dev/null | sort -u | head -3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
+kam=$(for d in "$SYS"/class/video4linux/video*; do [ -r "$d/name" ] && cat "$d/name"; done 2>/dev/null | sed 's/:.*//' | sort -u | head -3 | tr '\n' ',' | sed 's/,$//; s/,/, /g')
 if [ -n "$kam" ]; then ok "Kamera erkannt: $kam."; else info "Keine Kamera erkannt (bei einem Desktop-PC normal)."; fi
 if [ -r "$PROC/bus/input/devices" ]; then
     if grep -qiE 'touchpad|synaptics|elan|glidepoint|trackpad' "$PROC/bus/input/devices"; then ok "Touchpad erkannt."
@@ -105,7 +105,7 @@ for b in "$SYS"/class/power_supply/BAT*; do
     voll=$(cat "$b/energy_full" "$b/charge_full" 2>/dev/null | head -1)
     ausl=$(cat "$b/energy_full_design" "$b/charge_full_design" 2>/dev/null | head -1)
     if [ -n "$voll" ] && [ -n "$ausl" ] && [ "$ausl" -gt 0 ]; then
-        proz=$((voll * 100 / ausl))
+        proz=$((voll * 100 / ausl)); [ "$proz" -gt 100 ] && proz=100
         if [ "$proz" -lt 60 ]; then warn "Akku $(basename "$b"): nur noch $proz % der ursprünglichen Kapazität (stark verschlissen, unabhängig vom Betriebssystem)."
         else ok "Akku $(basename "$b"): $proz % der ursprünglichen Kapazität."; fi
     else
@@ -127,7 +127,7 @@ fi
 if command -v dmesg >/dev/null 2>&1 || command -v journalctl >/dev/null 2>&1; then
     log=$(journalctl -k -b --no-pager -q 2>/dev/null)
     [ -n "$log" ] || log=$(dmesg 2>/dev/null)
-    fw=$(printf '%s\n' "$log" | sed -n 's/.*Direct firmware load for \([^ ]*\) failed.*/\1/p' | sort -u | head -6)
+    fw=$(printf '%s\n' "$log" | sed -n 's/.*Direct firmware load for \([^ ]*\) failed.*/\1/p' | grep -v '^/*amdtee/' | sort -u | head -6)
     if [ -n "$fw" ]; then
         info "Firmware konnte nicht geladen werden (kann harmlos sein, wenn das Gerät eine ältere Datei geladen hat):"
         printf '%s\n' "$fw" | sed 's/^/    /'

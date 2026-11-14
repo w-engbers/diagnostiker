@@ -21,7 +21,8 @@ public sealed class LinuxTauglichkeitModulTests : IDisposable
         Datei(Proc, "meminfo", "MemTotal:       16000000 kB\n");
         Datei(Proc, "asound/cards", " 0 [PCH            ]: HDA-Intel - HDA Intel PCH\n");
         Datei(Proc, "bus/input/devices", "N: Name=\"SYNA Touchpad\"\n");
-        Datei(Sys, "class/video4linux/video0/name", "Integrated Camera\n");
+        Datei(Sys, "class/video4linux/video0/name", "Integrated Camera: Integrated C\n");
+        Datei(Sys, "class/video4linux/video1/name", "Integrated Camera: Integrated I\n");
         Datei(Sys, "power/mem_sleep", "s2idle [deep]\n");
         Datei(Sys, "block/nvme0n1/queue/rotational", "0\n");
         Datei(Sys, "block/nvme0n1/removable", "0\n");
@@ -86,7 +87,7 @@ public sealed class LinuxTauglichkeitModulTests : IDisposable
         var aus = Lauf();
         Assert.Contains("[OK] Grafik: Intel Corporation TigerLake GT2, Treiber i915.", aus);
         Assert.Contains("[OK] Netzwerk: Intel Corporation Wi-Fi 6 AX201, Treiber iwlwifi.", aus);
-        Assert.Contains("[OK] Kamera erkannt: Integrated Camera.", aus);
+        Assert.Contains("[OK] Kamera erkannt: Integrated Camera.", aus);   // beide Geräteknoten, ein Name
         Assert.Contains("[OK] Touchpad erkannt.", aus);
         Assert.Contains("[OK] Akku BAT0: 90 %", aus);
         Assert.Contains("klassischer Standby", aus);
