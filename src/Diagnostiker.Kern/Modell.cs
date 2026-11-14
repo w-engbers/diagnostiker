@@ -36,6 +36,10 @@ public sealed class ParameterDefinition
     public string Name { get; set; } = "";
     public string Frage { get; set; } = "";
     public string Standard { get; set; } = "";
+
+    /// <summary>Geheimer Wert (z. B. ein Schlüssel): wird nicht in die Befehlszeile eingesetzt, sondern dem Programm als Umgebungsvariable
+    /// <c>DIAGNOSTIKER_PARAM_&lt;NAME&gt;</c> übergeben, deshalb steht er in keinem Protokoll. Die Oberfläche zeigt die Eingabe verdeckt.</summary>
+    public bool Geheim { get; set; }
 }
 
 public sealed class SchrittDefinition

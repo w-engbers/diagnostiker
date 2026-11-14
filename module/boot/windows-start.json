@@ -1,0 +1,130 @@
+{
+  "id": "boot.windows-start",
+  "titel": "Windows startet nicht: Spurensuche (Startreparatur, Absturzabbilder, Updates)",
+  "gruppe": "Booten",
+  "beschreibung": "Sucht nur lesend auf der Windows-Partition nach der Ursache, warum Windows nicht startet: Ergebnis der Startreparatur (SrtTrail.txt), Absturzabbilder mit Stoppcode, ausstehende Updates, Update- und Setup-Protokolle, Startprotokoll, freier Platz. Verschlüsselte Laufwerke (BitLocker) werden mit dem Wiederherstellungsschlüssel geöffnet (nur lesend, der Schlüssel wird nirgends gespeichert; er steht im Microsoft-Konto des Besitzers). Läuft im Live-System des Sticks. Das Windows-Ereignisprotokoll ist noch nicht dabei.",
+  "schnellpruefung": false,
+  "parameter": [
+    {
+      "name": "schluessel",
+      "frage": "BitLocker-Wiederherstellungsschlüssel (48 Ziffern, Eingabe verdeckt).\nLeer lassen, wenn das Laufwerk nicht verschlüsselt ist:",
+      "standard": "",
+      "geheim": true
+    }
+  ],
+  "schritte": [
+    {
+      "titel": "Windows-Spurensuche (Windows)",
+      "os": "windows",
+      "befehl": "powershell.exe",
+      "kodierung": "utf8",
+      "argumente": [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Write-Output 'NUR_LINUX'"
+      ],
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Dieses Modul prüft die Datenträger von außen: den Stick im betroffenen Rechner starten (Live-System)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    },
+    {
+      "titel": "Windows-Spurensuche",
+      "os": "linux",
+      "befehl": "sh",
+      "argumente": [
+        "{module}/boot/windows-start.sh"
+      ],
+      "admin": true,
+      "timeoutSekunden": 300,
+      "zeigeAusgabe": true,
+      "regeln": [
+        {
+          "typ": "enthaelt",
+          "wert": "NUR_LINUX",
+          "status": "Uebersprungen",
+          "meldung": "Dieses Modul prüft die Datenträger von außen: den Stick im betroffenen Rechner starten (Live-System)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_RECHTE",
+          "status": "Uebersprungen",
+          "meldung": "Zum Einhängen der Laufwerke sind Administratorrechte nötig."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "KEINE_DATENTRAEGER",
+          "status": "Warnung",
+          "meldung": "Kein Datenträger gefunden."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[FEHLER]",
+          "status": "Fehler",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[WARNUNG]",
+          "status": "Warnung",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[OK]",
+          "status": "Ok",
+          "meldung": ""
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "[INFO]",
+          "status": "Info",
+          "meldung": ""
+        }
+      ]
+    }
+  ]
+}

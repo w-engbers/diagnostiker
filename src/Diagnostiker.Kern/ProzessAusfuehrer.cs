@@ -11,7 +11,8 @@ public static class ProzessAusfuehrer
     static ProzessAusfuehrer() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
     public static async Task<ProzessErgebnis> AusfuehrenAsync(
-        string programm, IEnumerable<string> argumente, TimeSpan timeout, string kodierung, CancellationToken ct = default)
+        string programm, IEnumerable<string> argumente, TimeSpan timeout, string kodierung, CancellationToken ct = default,
+        IReadOnlyDictionary<string, string>? umgebung = null)
     {
         var enc = KodierungWaehlen(kodierung);
         var psi = new ProcessStartInfo(programm)
@@ -25,6 +26,8 @@ public static class ProzessAusfuehrer
             StandardErrorEncoding = enc,
         };
         foreach (var a in argumente) psi.ArgumentList.Add(a);
+
+        if (umgebung is not null) foreach (var (k, v) in umgebung) psi.Environment[k] = v;
 
         // Auf Linux: feste Sprache, damit die Regeln stabil gegen englische Ausgaben prüfen können.
         if (Plattform.IstLinux)

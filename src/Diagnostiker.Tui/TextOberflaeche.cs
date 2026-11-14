@@ -95,9 +95,12 @@ sealed class TextOberflaeche(Kontext k)
 
         var parameter = new Dictionary<string, string>();
         foreach (var p in m.Parameter)
-            parameter[p.Name] = fragen
-                ? AnsiConsole.Prompt(new TextPrompt<string>(Markup.Escape(p.Frage)).DefaultValue(p.Standard))
-                : p.Standard;
+        {
+            if (!fragen) { parameter[p.Name] = p.Standard; continue; }
+            var frage = new TextPrompt<string>(Markup.Escape(p.Frage)).DefaultValue(p.Standard).AllowEmpty();
+            if (p.Geheim) frage = frage.Secret();   // Eingabe als Sternchen
+            parameter[p.Name] = AnsiConsole.Prompt(frage);
+        }
 
         ModulErgebnis erg = null!;
         await AnsiConsole.Status().StartAsync($"{m.Titel} …", async _ => { erg = await k.Ausfuehrer.AusfuehrenAsync(m, parameter); });

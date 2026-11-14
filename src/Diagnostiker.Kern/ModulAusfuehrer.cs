@@ -23,7 +23,7 @@ public sealed class ModulAusfuehrer(string stickWurzel)
         var erg = new ModulErgebnis { Id = modul.Id, Titel = modul.Titel, Beginn = DateTime.Now };
         foreach (var schritt in modul.Schritte.Where(OsPasst))
         {
-            erg.Schritte.Add(await SchrittAusfuehrenAsync(schritt, parameter, ct));
+            erg.Schritte.Add(await SchrittAusfuehrenAsync(schritt, parameter, modul.Parameter.Where(p => p.Geheim).Select(p => p.Name).ToHashSet(), ct));
         }
 
         erg.Status = ZusammenfassenStatus(erg.Schritte.Select(s => s.Status));
@@ -41,14 +41,14 @@ public sealed class ModulAusfuehrer(string stickWurzel)
     }
 
     private async Task<SchrittErgebnis> SchrittAusfuehrenAsync(
-        SchrittDefinition s, IReadOnlyDictionary<string, string> parameter, CancellationToken ct)
+        SchrittDefinition s, IReadOnlyDictionary<string, string> parameter, ISet<string> geheim, CancellationToken ct)
     {
         var res = new SchrittErgebnis { Titel = s.Titel };
 
         string Ersetzen(string text)
         {
             text = text.Replace("{werkzeuge}", WerkzeugVerzeichnis).Replace("{module}", ModulVerzeichnis);
-            foreach (var (k, v) in parameter) text = text.Replace("{" + k + "}", v);
+            foreach (var (k, v) in parameter) if (!geheim.Contains(k)) text = text.Replace("{" + k + "}", v);
             return text;
         }
 
@@ -65,7 +65,8 @@ public sealed class ModulAusfuehrer(string stickWurzel)
 
         var sw = Stopwatch.StartNew();
         var pr = await ProzessAusfuehrer.AusfuehrenAsync(
-            programm, argumente, TimeSpan.FromSeconds(s.TimeoutSekunden), s.Kodierung, ct);
+            programm, argumente, TimeSpan.FromSeconds(s.TimeoutSekunden), s.Kodierung, ct,
+            geheim.ToDictionary(n => "DIAGNOSTIKER_PARAM_" + n.ToUpperInvariant(), n => parameter.GetValueOrDefault(n, "")));
         res.Sekunden = Math.Round(sw.Elapsed.TotalSeconds, 1);
         res.ExitCode = pr.ExitCode;
         res.Ausgabe = pr.Ausgabe;

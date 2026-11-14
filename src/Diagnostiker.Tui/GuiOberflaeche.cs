@@ -131,7 +131,7 @@ sealed class GuiOberflaeche(Kontext k)
                 var abgebrochen = false;
                 foreach (var p in m.Parameter)
                 {
-                    var wert = fragen ? Eingabe(app, m.Titel, p.Frage, p.Standard) : p.Standard;
+                    var wert = fragen ? Eingabe(app, m.Titel, p.Frage, p.Standard, p.Geheim) : p.Standard;
                     if (wert is null) { abgebrochen = true; break; }
                     parameter[p.Name] = wert;
                 }
@@ -298,13 +298,14 @@ sealed class GuiOberflaeche(Kontext k)
 
     // ---- Eingabedialog ----
 
-    string? Eingabe(IApplication app, string titel, string frage, string standard)
+    string? Eingabe(IApplication app, string titel, string frage, string standard, bool geheim = false)
     {
         string? ergebnis = null;
-        var dialog = new Dialog { Title = titel, Width = Dim.Percent(70), Height = 11 };
+        var zeilen = frage.Split('\n').Length;
+        var dialog = new Dialog { Title = titel, Width = Dim.Percent(70), Height = 10 + zeilen };
         dialog.SetScheme(_schema);
         dialog.ShadowStyle = ShadowStyles.None;
-        var text = new TextField { Text = standard, X = 1, Y = 3, Width = Dim.Fill(1) };
+        var text = new TextField { Text = standard, X = 1, Y = 2 + zeilen, Width = Dim.Fill(1), Secret = geheim };
         var ok = new Button { Text = "OK", IsDefault = true, NoDecorations = true, ShadowStyle = ShadowStyles.None };
         ok.Accepting += (_, e) => { ergebnis = text.Text; app.RequestStop(); e.Handled = true; };
         // Enter im Eingabefeld übernimmt den Text (sonst würde der zuletzt hinzugefügte Knopf, „Abbrechen“, ausgelöst).
@@ -314,7 +315,7 @@ sealed class GuiOberflaeche(Kontext k)
         dialog.AddButton(ok);
         dialog.AddButton(abbrechen);
         // Das Eingabefeld zuletzt hinzufügen und gezielt fokussieren, sonst landet der Fokus auf dem letzten Knopf.
-        dialog.Add(new Label { Text = frage, X = 1, Y = 1 }, text);
+        dialog.Add(new Label { Text = frage, X = 1, Y = 1, Height = zeilen }, text);
         text.SetFocus();
         dialog.Initialized += (_, _) => text.SetFocus();
         app.Run(dialog);
