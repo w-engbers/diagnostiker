@@ -194,6 +194,18 @@ public sealed class DruckerModulTests : IDisposable
     }
 
     [Fact]
+    public void Windows_Namen_mit_Zusaetzen_werden_gefunden_und_doppelte_nur_einmal_gezeigt()
+    {
+        _nutzerDrucker.Add(("Brother HL-L2350DW series Printer", "Ne01:"));
+        _nutzerDrucker.Add(("Brother HL-L2350DW series Printer", "Ne02:"));
+        _nutzerDrucker.Add(("EPSON1234AB (XP-420 Series)", "Ne03:"));
+        var aus = Lauf();
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(aus, "Drucker „Brother HL-L2350DW series Printer“").Count);
+        Assert.Contains("[OK] Drucker „Brother HL-L2350DW series Printer“", aus);
+        Assert.Contains("[OK] Drucker „EPSON1234AB (XP-420 Series)“", aus);
+    }
+
+    [Fact]
     public void Ohne_Treiberdatenbank_wird_das_gesagt()
     {
         Drucker("Brother HL-L2350DW series", "Brother HL-L2350DW series", "USB001");

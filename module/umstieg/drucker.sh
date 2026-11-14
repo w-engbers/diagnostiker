@@ -80,6 +80,10 @@ bewerte_drucker() { # Anzeigename, Treibername, Anschluss
         ok "Drucker „$name“ ($art): Treiber im Live-System vorhanden: $t."
     elif t=$(treiber_suche "$name"); [ -n "$t" ]; then
         ok "Drucker „$name“ ($art): Treiber im Live-System vorhanden: $t."
+    elif kurz=$(printf '%s' "$name" | sed 's/ Printer$//; s/ Drucker$//; s/ (Kopie [0-9]*)$//; s/ (Copy [0-9]*)$//'); [ "$kurz" != "$name" ] && t=$(treiber_suche "$kurz") && [ -n "$t" ]; then
+        ok "Drucker „$name“ ($art): Treiber im Live-System vorhanden: $t."
+    elif innen=$(printf '%s' "$name" | sed -n 's/.*(\(.*\)).*/\1/p'); [ -n "$innen" ] && t=$(treiber_suche "$innen") && [ -n "$t" ]; then
+        ok "Drucker „$name“ ($art): Treiber im Live-System vorhanden: $t."
     elif [ "$art" = Netzwerk ]; then
         info "Drucker „$name“ ($art): kein eigener Treiber in der Datenbank gefunden, aber Netzwerkdrucker arbeiten meist ohne Treiber (IPP/AirPrint). Mit dem Drucker testen."
     else
@@ -141,7 +145,7 @@ analysiere() { # Einhängepunkt, Gerät
                 printf 'cd \\Software\\Microsoft\\Windows NT\\CurrentVersion\\Devices\nlsval\n' | hivexsh -u "$nt" 2>/dev/null | sed 's/\r$//' \
                     | sed -n 's/^"\(.*\)"="winspool,\(.*\)"$/\1|\2/p' >> "$tmp/devices"
             done
-            sort -u "$tmp/devices" 2>/dev/null > "$tmp/devices2"
+            sort -t'|' -k1,1 -u "$tmp/devices" 2>/dev/null > "$tmp/devices2"
             while IFS='|' read -r name port; do
                 [ -n "$name" ] || continue
                 gesamt=$((gesamt+1))
