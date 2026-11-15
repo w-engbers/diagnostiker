@@ -83,6 +83,8 @@ Textoberfläche, derselbe Aufbau wie das Prüfprogramm (.NET, Spectre.Console, g
 - **Abbild bauen:** startet den Container-Bau der Basis, zeigt Fortschritt und Ergebnis.
 - **Selbsttest:** Prüfsummen auf dem Stick gegen `stick.json`.
 
+Die Auslieferung als signiertes Paket (ohne Docker beim Anwender) ist in [AUSLIEFERUNG.md](AUSLIEFERUNG.md) beschrieben.
+
 Root-Rechte nur dort, wo nötig (Schreiben des Laufwerks), über `sudo`/`pkexec`, nie für das ganze Programm.
 
 ## 7. Prüfprogramm (aus dem Prototyp übernommen)

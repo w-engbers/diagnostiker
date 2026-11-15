@@ -80,6 +80,11 @@ Lässt sich die Bildschirmoberfläche nicht starten, folgt die einfache Textansi
 `DIAGNOSTIKER_OBERFLAECHE=text` die Textansicht in tmux (Bild-auf blättert zurück).
 Die Konsolenschrift von Linux hat keine Glyphen für ✔ ✘ ▲ ▼: Bewertungen stehen deshalb als Wörter ([OK], [FEHLER] …).
 
+## Auslieferung
+
+Fertige Pakete (signiert) für das spätere Frontend entstehen mit `release/bauen.sh`. Format, Schlüssel und Ablauf:
+[docs/AUSLIEFERUNG.md](docs/AUSLIEFERUNG.md). Lizenz: GPL-3.0 (siehe `LICENSE`).
+
 ## Bauen und Testen
 
 Voraussetzung: .NET-SDK 10.
