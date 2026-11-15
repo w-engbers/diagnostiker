@@ -49,13 +49,17 @@ echo "== Laufwerk $ZIEL ($((GROESSE / 1024 / 1024 / 1024)) GiB) wird vollständi
 wipefs -a "$ZIEL" >/dev/null
 echo "== Abbild schreiben ($((BYTES / 1024 / 1024)) MiB)"
 { gzip -dc "$GZ" | dd of="$ZIEL" bs=4M iflag=fullblock conv=fsync status=progress; } 2>&1 | stdbuf -oL tr '\r' '\n'
+echo "== $(date +%T) Schreiben beendet, Zwischenspeicher leeren"
 sync
 blockdev --flushbufs "$ZIEL"
-echo "== Zurücklesen und vergleichen"
-gzip -dc "$GZ" | cmp -n "$BYTES" - "$ZIEL" || { echo "FEHLER: Das Laufwerk enthält nicht das geschriebene Abbild (defekter Stick?)." >&2; exit 4; }
+echo "== $(date +%T) Zurücklesen und vergleichen"
+# Das Laufwerk wird mit dd gelesen (Fortschrittszeilen), cmp vergleicht mit dem entpackten Abbild.
+dd if="$ZIEL" bs=4M iflag=fullblock,count_bytes count="$BYTES" status=progress 2> >(stdbuf -oL tr '\r' '\n' >&2) | cmp - <(gzip -dc "$GZ") \
+    || { echo "FEHLER: Das Laufwerk enthält nicht das geschriebene Abbild (defekter Stick?)." >&2; exit 4; }
+echo "== $(date +%T) Vergleich in Ordnung"
 
 # --- Partitionstabelle fertigstellen ---
-echo "== Partitionstabelle fertigstellen"
+echo "== $(date +%T) Partitionstabelle fertigstellen"
 sfdisk --relocate gpt-bak-std "$ZIEL" >/dev/null
 echo 'type=EBD0A0A2-B9E5-4433-87C0-68B6B72699C7, name=DIAGDATEN' | sfdisk --append --no-reread "$ZIEL" >/dev/null
 # Jeder Stick bekommt eigene GUIDs (das Abbild ist für alle gleich).

@@ -8,6 +8,7 @@
 //                       (mit --ja ohne Rückfrage, mit --plan nur anzeigen, mit --basis auch das Live-System ersetzen; protokolle/ wird nie angefasst)
 using Diagnostiker.StickKern;
 using Diagnostiker.StickKern.Paket;
+using System.Runtime.InteropServices;
 using Spectre.Console;
 
 // Gewählte Zeile: weiß auf blau, gut lesbar auch auf der schwarzen Linux-Konsole (Standard wäre dunkelblaue Schrift).
@@ -91,6 +92,8 @@ async Task<bool> PaketPruefenAsync(string? quellenangabe)
     }
     catch (Exception e) when (e is PaketException or HttpRequestException or IOException)
     { Fehler(e is HttpRequestException ? "Das Paket lässt sich nicht laden: " + e.Message : e.Message); return false; }
+    catch (Exception e)
+    { Fehler("Unerwarteter Fehler: " + e); return false; }
 }
 
 async Task<bool> PaketErstellenAsync(string? quellenangabe)
@@ -139,12 +142,23 @@ async Task<bool> PaketErstellenAsync(string? quellenangabe)
 
         // 4. Schreiben (dd-Fortschrittszeilen nur jede fünfte zeigen)
         var zaehler = 0;
+        var logDatei = Path.Combine(PaketHolen.StandardZwischenspeicher(), "..", "letzter-lauf.log");
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(logDatei))!);
+        using var log = new StreamWriter(Path.GetFullPath(logDatei), false) { AutoFlush = true };
+        void Protokoll(string z) { lock (log) log.WriteLine($"{DateTime.Now:HH:mm:ss} {z}"); }
+        // Wird das Programm von außen beendet (Terminal geschlossen, Signal), steht das wenigstens im Protokoll.
+        using var signale = new[] { PosixSignal.SIGHUP, PosixSignal.SIGTERM, PosixSignal.SIGINT, PosixSignal.SIGQUIT }
+            .Select(sg => PosixSignalRegistration.Create(sg, c => Protokoll($"SIGNAL {sg} empfangen (Programm wird beendet)"))).ToList().AsDisposable();
+        AnsiConsole.MarkupLineInterpolated($"[grey]Protokoll: {Path.GetFullPath(logDatei)}[/]");
+        Protokoll($"Start: {laufwerk.Pfad}");
         var ersteller = new PaketStickErsteller(quelle, befehle);
         var ergebnis = await ersteller.ErstellenAsync(laufwerk, eingabe, paket, z =>
         {
+            Protokoll(z);
             if (z.Contains(" copied, ") && ++zaehler % 5 != 0) return;
             AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]");
         });
+        Protokoll($"Ergebnis: Erfolg={ergebnis.Erfolg} {ergebnis.Meldung}");
         if (ergebnis.Erfolg) AnsiConsole.MarkupLine($"[green]{Markup.Escape(ergebnis.Meldung)}[/]");
         else Fehler(ergebnis.Meldung);
         return ergebnis.Erfolg;
@@ -322,4 +336,10 @@ static int PaketBauen(string[] a)
         return 0;
     }
     catch (Diagnostiker.StickKern.Paket.PaketException e) { Fehler(e.Message); return 1; }
+}
+
+static class Erweiterungen
+{
+    public static IDisposable AsDisposable(this List<PosixSignalRegistration> liste) => new Sammlung(liste);
+    sealed class Sammlung(List<PosixSignalRegistration> l) : IDisposable { public void Dispose() { foreach (var x in l) x.Dispose(); } }
 }
