@@ -2,9 +2,12 @@
 // Aufruf: diagnostiker-stick [laufwerke | aktualisieren [--ja]]
 //   ohne Argument       Menü
 //   laufwerke           Laufwerke auflisten und bewerten (nur lesend), ohne Menü
+//   paket-pruefen       neueste Paketversion lesen und die Signatur prüfen (nichts wird geschrieben)
+//   paket-erstellen     Stick aus einem signierten Paket erstellen (ohne Docker; auch im Menü). Optionen: --quelle <Ordner|https-Adresse>
 //   aktualisieren       Programm und Module auf einem vorhandenen Stick auf den neuesten Stand bringen
 //                       (mit --ja ohne Rückfrage, mit --plan nur anzeigen, mit --basis auch das Live-System ersetzen; protokolle/ wird nie angefasst)
 using Diagnostiker.StickKern;
+using Diagnostiker.StickKern.Paket;
 using Spectre.Console;
 
 // Gewählte Zeile: weiß auf blau, gut lesbar auch auf der schwarzen Linux-Konsole (Standard wäre dunkelblaue Schrift).
@@ -22,8 +25,14 @@ if (!OperatingSystem.IsLinux())
 if (args.Length > 0 && args[0] == "schluessel-erzeugen") return SchluesselErzeugen(args);
 if (args.Length > 0 && args[0] == "paket-bauen") return PaketBauen(args);
 
+const string StandardRepo = "w-engbers/diagnostiker";
 var quelle = new LsblkQuelle();
 var befehle = new ProzessBefehle();
+
+if (args.Contains("paket-pruefen"))
+    return await PaketPruefenAsync(Option("--quelle")) ? 0 : 1;
+if (args.Contains("paket-erstellen"))
+    return await PaketErstellenAsync(Option("--quelle")) ? 0 : 1;
 
 if (args.Contains("laufwerke"))
 {
@@ -44,15 +53,104 @@ while (true)
     var wahl = AnsiConsole.Prompt(new SelectionPrompt<string>()
         .HighlightStyle(Markierung)
         .Title("Was soll getan werden?")
-        .AddChoices("Laufwerke ansehen", "Stick erstellen", "Stick aktualisieren", "Abbild (ISO) bauen", "Beenden"));
+        .AddChoices("Laufwerke ansehen", "Stick erstellen (fertiges Paket laden)", "Stick erstellen (aus eigenem Bau, Docker)", "Stick aktualisieren", "Abbild (ISO) bauen", "Beenden"));
     switch (wahl)
     {
         case "Beenden": return 0;
         case "Laufwerke ansehen": await LaufwerkeZeigenAsync(); break;
         case "Abbild (ISO) bauen": await IsoBauenAsync(); break;
-        case "Stick erstellen": await StickErstellenAsync(); break;
+        case "Stick erstellen (fertiges Paket laden)": await PaketErstellenAsync(null); break;
+        case "Stick erstellen (aus eigenem Bau, Docker)": await StickErstellenAsync(); break;
         case "Stick aktualisieren": await StickAktualisierenAsync(false, false, false); break;
     }
+}
+
+string? Option(string name)
+{
+    var i = Array.IndexOf(args, name);
+    return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+IPaketQuelle PaketQuelle(string? angabe)
+{
+    if (angabe is null) return HttpQuelle.GitHub(StandardRepo);
+    if (angabe.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return new HttpQuelle(angabe);
+    if (Directory.Exists(angabe)) return new OrdnerQuelle(Path.GetFullPath(angabe));
+    throw new PaketException($"„{angabe}“ ist weder ein Ordner noch eine https-Adresse.");
+}
+
+async Task<bool> PaketPruefenAsync(string? quellenangabe)
+{
+    try
+    {
+        var holen = new PaketHolen(new VertrauensSpeicher(VertrauensSpeicher.Standard()).Laden(), new VertrauensSpeicher(VertrauensSpeicher.Standard()), PaketHolen.StandardZwischenspeicher());
+        var (m, _) = await holen.ManifestPruefenAsync(PaketQuelle(quellenangabe), CancellationToken.None);
+        AnsiConsole.MarkupLine($"[green]Signatur in Ordnung.[/] Version [bold]{Markup.Escape(m.Version)}[/], erstellt {m.Erstellt:yyyy-MM-dd HH:mm} UTC.");
+        foreach (var d in m.Dateien) AnsiConsole.MarkupLine($"  {Markup.Escape(d.Name)}: {Sicherheit.Groesse(d.Groesse)}");
+        return true;
+    }
+    catch (Exception e) when (e is PaketException or HttpRequestException or IOException)
+    { Fehler(e is HttpRequestException ? "Das Paket lässt sich nicht laden: " + e.Message : e.Message); return false; }
+}
+
+async Task<bool> PaketErstellenAsync(string? quellenangabe)
+{
+    try
+    {
+        // 1. Paket holen und prüfen (vor jeder Änderung an einem Laufwerk)
+        var speicher = new VertrauensSpeicher(VertrauensSpeicher.Standard());
+        var holen = new PaketHolen(speicher.Laden(), speicher, PaketHolen.StandardZwischenspeicher());
+        GeholtesPaket paket = null!;
+        await AnsiConsole.Progress().AutoClear(false).Columns(new TaskDescriptionColumn(), new ProgressBarColumn(), new PercentageColumn(), new TransferSpeedColumn())
+            .StartAsync(async ctx =>
+            {
+                var aufgaben = new Dictionary<string, ProgressTask>();
+                paket = await holen.HolenAsync(PaketQuelle(quellenangabe), z => AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]"),
+                    (name, bytes, gesamt) =>
+                    {
+                        if (!aufgaben.TryGetValue(name, out var t)) aufgaben[name] = t = ctx.AddTask(name, maxValue: Math.Max(gesamt, 1));
+                        t.Value = bytes;
+                    }, CancellationToken.None);
+            });
+
+        // 2. Laufwerk wählen
+        var alle = await quelle.LesenAsync(CancellationToken.None);
+        var geeignet = alle.Where(l => Sicherheit.Pruefe(l).Erlaubt).ToList();
+        if (geeignet.Count == 0)
+        {
+            AnsiConsole.MarkupLine("[yellow]Kein geeigneter USB-Stick gefunden.[/] Stick einstecken und erneut versuchen. Das Paket ist geladen und geprüft, es muss nicht noch einmal geladen werden.");
+            return false;
+        }
+        var wahlen = geeignet.Select(l => $"{l.Pfad}  {l.Beschreibung}  {Sicherheit.Groesse(l.Groesse)}").Append("Abbrechen").ToList();
+        var gewaehlt = AnsiConsole.Prompt(new SelectionPrompt<string>().HighlightStyle(Markierung).Title("Auf welchen Stick soll geschrieben werden?").AddChoices(wahlen));
+        if (gewaehlt == "Abbrechen") return true;
+        var laufwerk = geeignet[wahlen.IndexOf(gewaehlt)];
+
+        // 3. Bestätigen
+        var pruefung = Sicherheit.Pruefe(laufwerk);
+        AnsiConsole.Write(new Panel(new Markup(
+            $"[bold]{Markup.Escape(laufwerk.Pfad)}[/]  {Markup.Escape(laufwerk.Beschreibung)}  {Sicherheit.Groesse(laufwerk.Groesse)}\n" +
+            string.Join("\n", pruefung.Hinweise.Select(h => "• " + Markup.Escape(h)))))
+            .Header("Ausgewählter Stick").RoundedBorder());
+        AnsiConsole.MarkupLine($"[bold red]ALLES auf {Markup.Escape(laufwerk.Pfad)} wird gelöscht und lässt sich nicht wiederherstellen.[/]");
+        var eingabe = AnsiConsole.Prompt(new TextPrompt<string>(
+                $"Zur Bestätigung den Gerätenamen eingeben ([bold]{Markup.Escape(Bestaetigung.Erwartet(laufwerk))}[/]), leer lassen zum Abbrechen:").AllowEmpty());
+        if (string.IsNullOrWhiteSpace(eingabe)) { AnsiConsole.MarkupLine("Abgebrochen, es wurde nichts verändert."); return true; }
+
+        // 4. Schreiben (dd-Fortschrittszeilen nur jede fünfte zeigen)
+        var zaehler = 0;
+        var ersteller = new PaketStickErsteller(quelle, befehle);
+        var ergebnis = await ersteller.ErstellenAsync(laufwerk, eingabe, paket, z =>
+        {
+            if (z.Contains(" copied, ") && ++zaehler % 5 != 0) return;
+            AnsiConsole.MarkupLineInterpolated($"[grey]{z}[/]");
+        });
+        if (ergebnis.Erfolg) AnsiConsole.MarkupLine($"[green]{Markup.Escape(ergebnis.Meldung)}[/]");
+        else Fehler(ergebnis.Meldung);
+        return ergebnis.Erfolg;
+    }
+    catch (Exception e) when (e is PaketException or HttpRequestException or IOException)
+    { Fehler(e is HttpRequestException ? "Das Paket lässt sich nicht laden: " + e.Message : e.Message); return false; }
 }
 
 async Task IsoBauenAsync()

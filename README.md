@@ -82,7 +82,7 @@ Die Konsolenschrift von Linux hat keine Glyphen für ✔ ✘ ▲ ▼: Bewertunge
 
 ## Auslieferung
 
-Fertige Pakete (signiert) für das spätere Frontend entstehen mit `release/bauen.sh`. Format, Schlüssel und Ablauf:
+Fertige Pakete (signiert) entstehen mit `release/bauen.sh`; ein Stick lässt sich daraus ohne Docker erstellen (`paket-erstellen`). Format, Schlüssel und Ablauf:
 [docs/AUSLIEFERUNG.md](docs/AUSLIEFERUNG.md). Lizenz: GPL-3.0 (siehe `LICENSE`).
 
 ## Bauen und Testen

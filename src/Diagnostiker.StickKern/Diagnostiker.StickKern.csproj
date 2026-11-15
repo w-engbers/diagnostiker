@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Paket\oeffentlicher-schluessel.txt" LogicalName="oeffentlicher-schluessel.txt" />
+    <EmbeddedResource Include="..\..\stick\paket-schreiben.sh" LogicalName="paket-schreiben.sh" />
   </ItemGroup>
 
 </Project>

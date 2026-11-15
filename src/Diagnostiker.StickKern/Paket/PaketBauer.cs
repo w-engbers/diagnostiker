@@ -34,7 +34,7 @@ public static class PaketBauer
         meldung?.Invoke("Datenpartition packen …");
         using (var aus = File.Create(datenZiel))
         using (var gz = new GZipStream(aus, CompressionLevel.SmallestSize))
-            TarFile.CreateFromDirectory(datenOrdner, gz, includeBaseDirectory: false);
+            TarEinpacken(datenOrdner, gz);
 
         meldung?.Invoke("Prüfsummen und Signatur …");
         var m = new Manifest(Manifest.AktuellesFormat, version, zeit ?? DateTimeOffset.UtcNow, bootMib,
@@ -46,5 +46,21 @@ public static class PaketBauer
         File.WriteAllBytes(Path.Combine(ausgabe, ManifestName), bytes);
         File.WriteAllText(Path.Combine(ausgabe, SignaturName), Signatur.Signieren(bytes, privaterSchluessel) + "\n");
         return m;
+    }
+
+    /// <summary>Packt den Ordner in ein tar. Eigene Schleife statt <c>TarFile.CreateFromDirectory</c>: Das lässt versteckte Dateien
+    /// (Punkt-Dateien) stillschweigend weg. Verweise sind nicht erlaubt (auf exFAT gibt es keine, und das Entpacken lehnt sie ab).</summary>
+    static void TarEinpacken(string ordner, Stream ziel)
+    {
+        var wurzel = Path.GetFullPath(ordner);
+        using var tw = new TarWriter(ziel, TarEntryFormat.Pax, leaveOpen: true);
+        foreach (var pfad in Directory.EnumerateFileSystemEntries(wurzel, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+        {
+            var rel = Path.GetRelativePath(wurzel, pfad).Replace('\\', '/');
+            var info = new FileInfo(pfad);
+            if (info.LinkTarget is not null) throw new PaketException($"Im Datenordner ist ein Verweis nicht erlaubt: {rel}");
+            if (Directory.Exists(pfad)) tw.WriteEntry(pfad, rel + "/");
+            else tw.WriteEntry(pfad, rel);
+        }
     }
 }

@@ -1,6 +1,6 @@
 # Diagnostiker – Auslieferung (Pakete, Signatur, Release)
 
-Stand 15.11.2026. Herausgeberseite fertig, Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) noch nicht gebaut.
+Stand 15.11.2026. Herausgeberseite und Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) sind gebaut und getestet; ein Test an einem echten Stick steht noch aus. Das Fenster-Frontend folgt.
 
 ## Ziel
 
@@ -44,18 +44,42 @@ Der Schlüsselpfad lässt sich mit `DIAGNOSTIKER_SCHLUESSEL` ändern. Dauer etwa
 Einzelbefehle des Stick-Managers: `dotnet run --project src/Diagnostiker.Stick -- schluessel-erzeugen <datei>` (verweigert das
 Überschreiben) und `… -- paket-bauen …`.
 
-## Stick aus dem Boot-Abbild (belegt, Anwenderseite noch nicht gebaut)
+## Anwender: Stick aus dem Paket erstellen
 
-Das Abbild wird auf das gesamte Laufwerk geschrieben, danach: GPT-Sicherungskopie ans Laufwerksende verlegen, Partition 3 (exFAT,
-`DIAGDATEN`) über den Rest anlegen, GUIDs neu würfeln, `mkfs.exfat`. exFAT lässt sich nicht vergrößern, daher wird DIAGDATEN immer
-frisch in der echten Größe angelegt. Getestet: Start in QEMU mit BIOS und mit UEFI und Secure Boot (`tests/boot/boot-test.sh`).
+```
+dotnet run --project src/Diagnostiker.Stick -- paket-pruefen [--quelle <Ordner|https-Adresse>]    # nur lesen: Version und Signatur
+dotnet run --project src/Diagnostiker.Stick -- paket-erstellen [--quelle <Ordner|https-Adresse>]  # auch im Menü: „Stick erstellen (fertiges Paket laden)“
+```
 
-Geplant für das Frontend: Herunterladen, Signatur und Summen prüfen, ein kleiner Helfer mit Administratorrechten über `pkexec`
-(wiederholt dieselben Sicherheitsregeln wie `stick-erstellen.sh`: nur USB, 4 bis 512 GiB, nicht eingehängt, nicht das Systemlaufwerk),
-danach ohne Root `udisksctl mount` und Entpacken von `daten.tar.gz`.
+Ohne `--quelle` wird die neueste Version aus `github.com/w-engbers/diagnostiker` (GitHub Releases) geladen. Nötig sind nur
+Linux-Standardwerkzeuge (util-linux mit `sfdisk`, `exfatprogs`, `udisks2`, `pkexec`), kein Docker.
+
+Ablauf (`Paket/PaketHolen.cs`, `PaketStickErsteller.cs`, `stick/paket-schreiben.sh`):
+
+1. **Holen und prüfen:** Manifest und Signatur lesen, Signatur gegen die vertrauten Schlüssel prüfen (eingebauter Schlüssel plus
+   die in `~/.config/diagnostiker/vertrauen.txt` gespeicherten aus Schlüsselwechseln). Bei „neueste Version“ wird danach auf genau diese
+   Version festgelegt. Dateien kommen in `~/.cache/diagnostiker/pakete/<version>/` (Fortsetzen mit HTTP-Range, nur HTTPS), jede Datei wird
+   gegen Größe und SHA-256 des Manifests geprüft, falsche werden gelöscht. Ältere Versionen im Zwischenspeicher werden entfernt.
+2. **Laufwerk wählen und bestätigen:** gleiche Sicherungen wie beim Docker-Weg (`ZielVorbereitung.cs`): nur USB, 4 bis 512 GiB, nichts vom System
+   benutzt, Gerätename eintippen, vor dem Schreiben erneute Prüfung, Aushängen.
+3. **Schreiben mit Administratorrechten:** ein eingebettetes Skript (`paket-schreiben.sh`) läuft über `pkexec /bin/bash -c <Skript> bash <Argumente>`
+   (nicht aus einer vom Benutzer beschreibbaren Datei, keine Umgebungsvariablen, die pkexec verwirft). Es prüft alle Regeln noch einmal selbst
+   (Gerätename, USB, Größe, nicht eingehängt, kein Verweis als Abbild, Prüfsumme des Abbilds), schreibt das Abbild (`gzip -dc | dd`), liest zurück und
+   vergleicht (`cmp`, entdeckt defekte Sticks), verlegt die GPT-Sicherungskopie ans Ende (`sfdisk --relocate`), legt Partition 3 an, würfelt GUIDs neu
+   und formatiert `DIAGDATEN` mit `mkfs.exfat`. Ausgabe der letzten Zeile: `SCHREIBEN_FERTIG <partition>`.
+4. **Füllen ohne Root:** `udisksctl mount`, `daten.tar.gz` entpacken (eigene Schleife: keine Unix-Rechte auf exFAT, nur Dateien und Ordner, Pfade
+   außerhalb des Ziels und Verweise werden abgelehnt), prüfen, dass `stick.json` da ist, `sync`, aushängen.
+
+Hinweis zu `TarFile.CreateFromDirectory`: Es lässt versteckte Dateien (Punkt-Dateien) stillschweigend weg. Der Paketbauer packt deshalb mit eigener Schleife.
+
+Tests: `dotnet test` (Attrappen für Laufwerke, Befehle und Netz, `PaketAnwenderTests.cs`) und `tests/stick/paket-test.sh <paketordner>`
+(echter Helfer in einem Container mit nur Anwenderwerkzeugen, Loop-Gerät statt Stick, Verweigerungen, Tabelle, GUIDs, Start in QEMU mit BIOS und
+UEFI/Secure Boot).
 
 ## Offen
 
-- Anwenderseite (siehe oben), Ende-zu-Ende-Test mit Loop-Gerät und QEMU, Test am echten Stick.
+- Test mit einem echten Stick (nur Werner kann ihn ausführen), erstes Release auf GitHub.
+- Sicherung gegen das Einspielen einer älteren, gültig signierten Version (Rückfallangriff) ist nicht eingebaut.
+- Aktualisieren eines vorhandenen Sticks aus einem Paket (heute nur Neuerstellen; der Docker-Weg `aktualisieren` bleibt).
 - Fenster-Frontend (Avalonia, nur Linux) und Sprachgrundlage (Texte statt deutscher Textstücke in den Bewertungsregeln).
 - Entscheidung zur Sprache der Oberfläche (nur Deutsch oder Englisch dazu).
