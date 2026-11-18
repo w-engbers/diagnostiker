@@ -1,6 +1,6 @@
 # Diagnostiker – Auslieferung (Pakete, Signatur, Release)
 
-Stand 18.11.2026. Herausgeberseite und Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) sind gebaut und getestet, auch an einem echten Stick (USB 3, 58 GiB: Schreiben etwa 2 Minuten, Zurücklesen 19 Sekunden, der Stick bootet). Das Fenster-Programm (Avalonia, nur Linux) ist gebaut und gehört zum Release.
+Stand 18.11.2026 (Release v2026.11.18 veröffentlicht). Herausgeberseite und Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) sind gebaut und getestet, auch an einem echten Stick (USB 3, 58 GiB: Schreiben etwa 2 Minuten, Zurücklesen 19 Sekunden, der Stick bootet). Das Fenster-Programm (Avalonia, nur Linux) ist gebaut und gehört zum Release.
 
 ## Ziel
 
@@ -95,7 +95,7 @@ UEFI/Secure Boot).
 
 ## Offen
 
-- Erstes Release auf GitHub (noch nicht hochgeladen).
+- Erstes Release ist veröffentlicht (18.11.2026, `v2026.11.18`, https://github.com/w-engbers/diagnostiker/releases). Der Tag steht auf dem Stand `6318b24`.
 - Langsame Sticks: Bei USB 2 und einfachen Controllern dauerte das Schreiben von 2,5 GiB rund 14 Minuten. Der Helfer zeigt Uhrzeiten, das Programm schreibt ein Protokoll nach `~/.cache/diagnostiker/letzter-lauf.log`.
 - Sicherung gegen das Einspielen einer älteren, gültig signierten Version (Rückfallangriff) ist nicht eingebaut.
 - Aktualisieren eines vorhandenen Sticks aus einem Paket (heute nur Neuerstellen; der Docker-Weg `aktualisieren` bleibt).
