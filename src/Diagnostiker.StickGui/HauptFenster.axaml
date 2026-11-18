@@ -2,14 +2,62 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Diagnostiker.StickGui.HauptFenster"
         Title="Diagnostiker – Stick-Manager"
-        Width="760" Height="620" MinWidth="620" MinHeight="520"
+        Width="860" Height="620" MinWidth="720" MinHeight="520"
         WindowStartupLocation="CenterScreen">
-  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+  <Window.Styles>
+    <!-- Alle Schaltflächen etwas kleiner -->
+    <Style Selector="Button">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="10,3"/>
+      <Setter Property="MinHeight" Value="26"/>
+    </Style>
+  </Window.Styles>
+  <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*,Auto" Margin="24">
+
+    <!-- Freigestellter USB-Stick (Vektorgrafik, leicht gedreht, mit weichem Schatten) -->
+    <Viewbox Grid.Column="1" Grid.RowSpan="3" Width="190" Margin="24,40,0,0" VerticalAlignment="Top" Stretch="Uniform" IsHitTestVisible="False">
+      <Canvas Width="180" Height="290">
+        <Ellipse Canvas.Left="40" Canvas.Top="262" Width="100" Height="16" Fill="#26000000"/>
+        <Canvas Canvas.Left="30" Canvas.Top="6">
+          <Canvas.RenderTransform><RotateTransform Angle="14" CenterX="60" CenterY="130"/></Canvas.RenderTransform>
+          <!-- Gehäuse -->
+          <Rectangle Canvas.Left="14" Canvas.Top="70" Width="92" Height="190" RadiusX="16" RadiusY="16">
+            <Rectangle.Fill>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                <GradientStop Offset="0" Color="#1F4E8C"/><GradientStop Offset="0.45" Color="#3B82D0"/><GradientStop Offset="1" Color="#17386A"/>
+              </LinearGradientBrush>
+            </Rectangle.Fill>
+          </Rectangle>
+          <Rectangle Canvas.Left="22" Canvas.Top="82" Width="11" Height="166" RadiusX="5.5" RadiusY="5.5" Fill="#38FFFFFF"/>
+          <!-- Anschlussblech -->
+          <Rectangle Canvas.Left="32" Canvas.Top="4" Width="56" Height="80" RadiusX="3" RadiusY="3">
+            <Rectangle.Fill>
+              <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                <GradientStop Offset="0" Color="#C9CED4"/><GradientStop Offset="0.4" Color="#F4F6F8"/><GradientStop Offset="1" Color="#9AA1A9"/>
+              </LinearGradientBrush>
+            </Rectangle.Fill>
+          </Rectangle>
+          <Rectangle Canvas.Left="39" Canvas.Top="12" Width="42" Height="62" RadiusX="2" RadiusY="2" Fill="#26292E"/>
+          <Rectangle Canvas.Left="43" Canvas.Top="14" Width="34" Height="30" Fill="#4A4F57"/>
+          <Rectangle Canvas.Left="46" Canvas.Top="18" Width="5" Height="22" Fill="#E3B341"/>
+          <Rectangle Canvas.Left="54" Canvas.Top="18" Width="5" Height="22" Fill="#E3B341"/>
+          <Rectangle Canvas.Left="62" Canvas.Top="18" Width="5" Height="22" Fill="#E3B341"/>
+          <Rectangle Canvas.Left="70" Canvas.Top="18" Width="5" Height="22" Fill="#E3B341"/>
+          <!-- Kragen zwischen Blech und Gehäuse -->
+          <Rectangle Canvas.Left="14" Canvas.Top="76" Width="92" Height="10" Fill="#0F2A50" Opacity="0.55"/>
+          <!-- Leuchte, Öse und Streifen -->
+          <Ellipse Canvas.Left="54" Canvas.Top="128" Width="12" Height="12" Fill="#58D68D"/>
+          <Ellipse Canvas.Left="57" Canvas.Top="131" Width="4" Height="4" Fill="#C8F7DC"/>
+          <Rectangle Canvas.Left="14" Canvas.Top="176" Width="92" Height="3" Fill="#33FFFFFF"/>
+          <Ellipse Canvas.Left="50" Canvas.Top="220" Width="20" Height="20" Fill="#14000000" Stroke="#99FFFFFF" StrokeThickness="2.5"/>
+        </Canvas>
+      </Canvas>
+    </Viewbox>
 
     <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
       <!-- Sprachauswahl: Flagge und Name, die gewählte Sprache ist hervorgehoben -->
-      <StackPanel Name="SpracheLeiste" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,0,0,6">
-        <Button Name="SpracheEn" Padding="8,4" ToolTip.Tip="English">
+      <StackPanel Name="SpracheLeiste" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left" Margin="0,0,0,10">
+        <Button Name="SpracheEn" Padding="7,3" ToolTip.Tip="English">
           <StackPanel Orientation="Horizontal" Spacing="7">
             <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
               <Rectangle Width="24" Height="16" Fill="#012169"/>
@@ -23,7 +71,7 @@
             <TextBlock Text="English" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Name="SpracheDe" Padding="8,4" ToolTip.Tip="Deutsch">
+        <Button Name="SpracheDe" Padding="7,3" ToolTip.Tip="Deutsch">
           <StackPanel Orientation="Horizontal" Spacing="7">
             <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
               <Rectangle Width="24" Height="5.4" Fill="#000000"/>
@@ -33,7 +81,7 @@
             <TextBlock Text="Deutsch" VerticalAlignment="Center"/>
           </StackPanel>
         </Button>
-        <Button Name="SpracheNl" Padding="8,4" ToolTip.Tip="Nederlands">
+        <Button Name="SpracheNl" Padding="7,3" ToolTip.Tip="Nederlands">
           <StackPanel Orientation="Horizontal" Spacing="7">
             <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
               <Rectangle Width="24" Height="5.4" Fill="#AE1C28"/>
@@ -66,7 +114,7 @@
         <TextBlock Name="StickErklaerung" Grid.Row="0" TextWrapping="Wrap" Opacity="0.8" Margin="0,0,0,10"/>
         <ListBox Name="StickListe" Grid.Row="1" MinHeight="120"/>
         <TextBlock Name="StickDetail" Grid.Row="2" TextWrapping="Wrap" Margin="0,10,0,0" Opacity="0.85"/>
-        <Button Name="StickWeiter" Grid.Row="3" Content="Weiter" IsEnabled="False" HorizontalAlignment="Right" Margin="0,14,0,0"/>
+        <Button Name="StickWeiter" Grid.Row="3" Content="Weiter" IsEnabled="False" HorizontalAlignment="Left" Margin="0,14,0,0"/>
       </Grid>
 
       <!-- 3: Bestätigen -->
