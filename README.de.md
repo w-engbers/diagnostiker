@@ -2,8 +2,8 @@
 
 [English](README.md) · **Deutsch** · [Nederlands](README.nl.md)
 
-Ein startfähiger USB-Prüfstick für PCs und Notebooks, gedacht für Repair-Cafés und die ehrenamtliche IT-Hilfe für Senioren.
-Er wird in einen Rechner gesteckt, der nicht mehr startet, oder in einen, auf dem Windows oder Linux läuft, und liefert einen
+Ein startfähiger USB-Prüfstick für PCs und Notebooks. Er ist aus den Bedürfnissen von Repair-Cafés und der ehrenamtlichen IT-Hilfe für Senioren
+entstanden, soll aber jedem helfen, der herausfinden muss, warum ein Rechner Probleme macht. Er wird in einen Rechner gesteckt, der nicht mehr startet, oder in einen, auf dem Windows oder Linux läuft, und liefert einen
 klaren, verständlichen Bericht zu Platte, Startvorgang und Netzwerk.
 
 > **Stand: frühe Testversion.** Der Stick funktioniert und startet (BIOS und UEFI, Secure Boot bleibt eingeschaltet). Das Werkzeug zum

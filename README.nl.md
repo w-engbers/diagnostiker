@@ -2,8 +2,8 @@
 
 [English](README.md) · [Deutsch](README.de.md) · **Nederlands**
 
-Een opstartbare USB-diagnosestick voor pc's en laptops, bedoeld voor repair cafés en vrijwillige IT-hulp aan ouderen.
-Je steekt hem in een computer die niet meer start, of in een computer waarop Windows of Linux draait, en krijgt een duidelijk,
+Een opstartbare USB-diagnosestick voor pc's en laptops. Hij is ontstaan uit de behoeften van repair cafés en vrijwillige IT-hulp aan ouderen,
+maar is bedoeld voor iedereen die moet uitzoeken waarom een computer problemen geeft. Je steekt hem in een computer die niet meer start, of in een computer waarop Windows of Linux draait, en krijgt een duidelijk,
 begrijpelijk rapport over de schijf, het opstarten en het netwerk.
 
 > **Status: vroege testversie.** De stick werkt en start op (BIOS en UEFI, Secure Boot blijft ingeschakeld). Het programma om de stick

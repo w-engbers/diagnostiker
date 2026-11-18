@@ -2,8 +2,8 @@
 
 **English** · [Deutsch](README.de.md) · [Nederlands](README.nl.md)
 
-A bootable USB diagnostic stick for PCs and notebooks, made for repair cafés and volunteer IT help for seniors.
-Plug it into a computer that will not start, or into one that is running Windows or Linux, and get a clear, plain-language
+A bootable USB diagnostic stick for PCs and notebooks. It grew out of the needs of repair cafés and volunteer IT help for seniors,
+but it is meant for anyone who has to find out why a computer misbehaves. Plug it into a computer that will not start, or into one that is running Windows or Linux, and get a clear, plain-language
 report on the disk, the boot process and the network.
 
 > **Status: early test version.** The stick works and boots (BIOS and UEFI, Secure Boot stays on), but the creation tool is
