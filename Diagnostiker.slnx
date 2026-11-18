@@ -3,9 +3,11 @@
     <Project Path="src/Diagnostiker.Kern/Diagnostiker.Kern.csproj" />
     <Project Path="src/Diagnostiker.StickKern/Diagnostiker.StickKern.csproj" />
     <Project Path="src/Diagnostiker.Stick/Diagnostiker.Stick.csproj" />
+    <Project Path="src/Diagnostiker.StickGui/Diagnostiker.StickGui.csproj" />
     <Project Path="src/Diagnostiker.Tui/Diagnostiker.Tui.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Diagnostiker.Tests/Diagnostiker.Tests.csproj" />
+    <Project Path="tests/Diagnostiker.GuiTests/Diagnostiker.GuiTests.csproj" />
   </Folder>
 </Solution>

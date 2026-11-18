@@ -65,6 +65,8 @@ public sealed partial class PaketStickErsteller(ILaufwerkQuelle quelle, IBefehls
         if (code == 126) return new ErstellErgebnis(false, "Die Anmeldung wurde abgebrochen oder das Passwort war falsch. Es wurde nichts verändert.");
         if (code == 127 && p3 is null) return new ErstellErgebnis(false, "Die Administratorrechte konnten nicht angefordert werden (pkexec fehlt oder ist nicht eingerichtet). Es wurde nichts verändert.");
         if (code == 3) return new ErstellErgebnis(false, "Der Helfer hat das Laufwerk abgelehnt (siehe Meldung oben). Es wurde nichts verändert.");
+        if (code == 4) return new ErstellErgebnis(false, "Das Schreiben ist fehlgeschlagen: Beim Zurücklesen stimmte der Inhalt des Sticks nicht mit dem Abbild überein. Der Stick ist vermutlich defekt. Bitte einen anderen Stick nehmen.");
+        if (code == 5) return new ErstellErgebnis(false, "Das Schreiben ist fehlgeschlagen: Die Datenpartition erschien nicht. Stick abziehen, neu einstecken und es erneut versuchen.");
         if (code != 0 || p3 is null)
             return new ErstellErgebnis(false, $"Das Schreiben ist fehlgeschlagen (Exitcode {code}). Der Stick ist nicht brauchbar, bitte erneut versuchen oder einen anderen Stick nehmen.");
 

@@ -43,6 +43,8 @@ tests/boot/boot-test.sh build/stick/diagnostiker-stick.img uefi-sb
 
 ## Stick-Manager
 
+Fenster (Linux, Avalonia): `dotnet run --project src/Diagnostiker.StickGui` (siehe [AUSLIEFERUNG.md](AUSLIEFERUNG.md)). Die Eingabezeile:
+
 Textoberfläche zum Erstellen des Sticks (nur unter Linux, Docker und .NET-SDK 10 nötig):
 
 ```

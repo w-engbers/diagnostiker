@@ -1,6 +1,6 @@
 # Diagnostiker – Auslieferung (Pakete, Signatur, Release)
 
-Stand 18.11.2026. Herausgeberseite und Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) sind gebaut und getestet, auch an einem echten Stick (USB 3, 58 GiB: Schreiben etwa 2 Minuten, Zurücklesen 19 Sekunden, der Stick bootet). Das Fenster-Frontend folgt.
+Stand 18.11.2026. Herausgeberseite und Anwenderseite (Herunterladen, Prüfen, Schreiben ohne Docker) sind gebaut und getestet, auch an einem echten Stick (USB 3, 58 GiB: Schreiben etwa 2 Minuten, Zurücklesen 19 Sekunden, der Stick bootet). Das Fenster-Programm (Avalonia, nur Linux) ist gebaut und gehört zum Release.
 
 ## Ziel
 
@@ -38,13 +38,24 @@ release/bauen.sh --version 2026.11.15 --veroeffentlichen w-engbers/diagnostiker
 ```
 
 Schritte: (1) `stick/staging.sh` stellt den Inhalt von DIAGDATEN zusammen, (2) `stick/boot-abbild-bauen.sh` baut im Container das
-Boot-Abbild aus dem Live-ISO, (3) `paket-bauen` packt und signiert, (4) optional `gh release create v<version>`.
+Boot-Abbild aus dem Live-ISO, (2b) die **Paketliste** des Live-Systems (`debian-pakete.txt`, aus `/live/filesystem.packages` des ISO) kommt als Release-Datei und, signiert, auf den Stick (`werkzeuge/lizenzen/`) als Nachweis für den Quelltext der Debian-Pakete,
+(3) `paket-bauen` packt und signiert, (4) das Fenster-Programm wird eigenständig gebaut (`dotnet publish`, eine Datei) und als `diagnostiker-stick-manager-linux-x64.tar.gz` gepackt, dazu `SHA256SUMS`,
+(5) optional `gh release create v<version>` mit allen Dateien und dem Text aus `release/release-notes.md`.
 Der Schlüsselpfad lässt sich mit `DIAGNOSTIKER_SCHLUESSEL` ändern. Dauer etwa 76 s (ohne ISO-Bau).
 
 Einzelbefehle des Stick-Managers: `dotnet run --project src/Diagnostiker.Stick -- schluessel-erzeugen <datei>` (verweigert das
 Überschreiben) und `… -- paket-bauen …`.
 
 ## Anwender: Stick aus dem Paket erstellen
+
+**Mit Fenster** (`src/Diagnostiker.StickGui`, Avalonia 11, nur Linux): `diagnostiker-stick-manager-linux-x64.tar.gz` aus dem Release entpacken und
+`diagnostiker-stick-gui` starten (eine einzelne, eigenständige Datei, kein .NET nötig; `--quelle <Ordner|https-Adresse>` wie bei der Eingabezeile). Vier Seiten: Paket laden
+und prüfen, Stick wählen (neu gesteckte Sticks erscheinen von selbst), Gerätenamen eintippen, Schreiben mit Fortschritt (`FortschrittAuswertung` im Kern liest die Helferausgabe),
+dann Ergebnis. Während des Schreibens lässt sich das Fenster nicht schließen. Die ganze Arbeit leistet der Kern, das Fenster ruft ihn nur auf. Tests: `tests/Diagnostiker.GuiTests` (Avalonia.Headless,
+ganzer Ablauf mit Attrappen, Bilder der Seiten mit `DIAGNOSTIKER_BILDER=<Ordner> dotnet test tests/Diagnostiker.GuiTests`). Der Stick-Manager selbst ist nicht signiert (nur `SHA256SUMS` im Release),
+die Pakete, die er lädt, schon.
+
+**Mit der Eingabezeile** (braucht das .NET-SDK):
 
 ```
 dotnet run --project src/Diagnostiker.Stick -- paket-pruefen [--quelle <Ordner|https-Adresse>]    # nur lesen: Version und Signatur
@@ -78,9 +89,9 @@ UEFI/Secure Boot).
 
 ## Offen
 
-- Erstes Release auf GitHub (Paket `2026.11.18` ist gebaut und signiert, noch nicht hochgeladen).
+- Erstes Release auf GitHub (noch nicht hochgeladen).
 - Langsame Sticks: Bei USB 2 und einfachen Controllern dauerte das Schreiben von 2,5 GiB rund 14 Minuten. Der Helfer zeigt Uhrzeiten, das Programm schreibt ein Protokoll nach `~/.cache/diagnostiker/letzter-lauf.log`.
 - Sicherung gegen das Einspielen einer älteren, gültig signierten Version (Rückfallangriff) ist nicht eingebaut.
 - Aktualisieren eines vorhandenen Sticks aus einem Paket (heute nur Neuerstellen; der Docker-Weg `aktualisieren` bleibt).
-- Fenster-Frontend (Avalonia, nur Linux) und Sprachgrundlage (Texte statt deutscher Textstücke in den Bewertungsregeln).
-- Entscheidung zur Sprache der Oberfläche (nur Deutsch oder Englisch dazu).
+- Sprachgrundlage: Die Texte des Fensters stehen gesammelt in `Texte.cs`, die Meldungen des Kerns und die Bewertungsregeln der Prüfmodule sind noch deutsche Textstücke. Entscheidung zur Sprache der Oberfläche (nur Deutsch oder weitere) steht aus.
+- Fenster: Aktualisieren eines vorhandenen Sticks, Funktionen ein- und ausschalten, Sprachwahl (später).
