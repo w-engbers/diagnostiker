@@ -26,7 +26,7 @@ public sealed record Laufwerk(
         get
         {
             var name = string.Join(' ', new[] { Hersteller?.Trim(), Modell?.Trim() }.Where(s => !string.IsNullOrEmpty(s)));
-            return string.IsNullOrEmpty(name) ? "(ohne Modellangabe)" : name;
+            return string.IsNullOrEmpty(name) ? Sprache.T("(ohne Modellangabe)") : name;
         }
     }
 }

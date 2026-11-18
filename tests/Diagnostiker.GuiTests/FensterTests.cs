@@ -91,13 +91,14 @@ public sealed class FensterTests : IDisposable
     [AvaloniaFact]
     public async Task Ganzer_Ablauf_von_der_Paketpruefung_bis_zum_fertigen_Stick()
     {
+        Sprache.Aktuell = "de";
         var (holen, ordner) = Paket();
         var stickOrdner = Path.Combine(_wurzel, "stick"); Directory.CreateDirectory(stickOrdner);
         var steckt = false; var fertig = false;
         var laufwerke = new Quelle(() => fertig ? [Fertig()] : steckt ? [Stick(), Stick("/dev/sdb", 10 * 1024L)] : []);
         var befehle = new Befehle(stickOrdner, beimSchreiben: () => fertig = true);
         var w = new HauptFenster(laufwerke, befehle, ordner, holen, (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 2, BinRoot = false })
-        { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null };
+        { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null, SprachDatei = Path.Combine(_wurzel, "sprache") };
         w.Show();
 
         // 1 + 2: Paket wird geprüft, dann kommt die Stickauswahl, zunächst ohne Stick
@@ -141,10 +142,11 @@ public sealed class FensterTests : IDisposable
     [AvaloniaFact]
     public async Task Fehler_des_Helfers_wird_im_Ergebnis_angezeigt()
     {
+        Sprache.Aktuell = "de";
         var (holen, ordner) = Paket();
         var stickOrdner = Path.Combine(_wurzel, "stick"); Directory.CreateDirectory(stickOrdner);
         var w = new HauptFenster(new Quelle(() => [Stick()]), new Befehle(stickOrdner, pkexecCode: 4), ordner, holen,
-            (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 1, BinRoot = false }) { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null };
+            (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 1, BinRoot = false }) { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null, SprachDatei = Path.Combine(_wurzel, "sprache") };
         w.Show();
         await Warten(() => Finde<ListBox>(w, "StickListe").ItemCount == 1, "Stick");
         Finde<ListBox>(w, "StickListe").SelectedIndex = 0;
@@ -163,6 +165,7 @@ public sealed class FensterTests : IDisposable
     [AvaloniaFact]
     public async Task Unbekanntes_Paket_zeigt_Fehler_und_Wiederholen()
     {
+        Sprache.Aktuell = "de";
         var (holen, _) = Paket();
         var leer = Path.Combine(_wurzel, "leer"); Directory.CreateDirectory(leer);
         var w = new HauptFenster(new Quelle(() => []), new Befehle(""), leer, holen, null);
@@ -172,6 +175,59 @@ public sealed class FensterTests : IDisposable
         Assert.True(Finde<Button>(w, "PaketOrdner").IsVisible);
         Bild(w, "0-paket-fehler");
         w.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task Sprachwechsel_beschriftet_alle_Seiten_neu_und_wird_gemerkt()
+    {
+        Sprache.Aktuell = "en";
+        var (holen, ordner) = Paket();
+        var stickOrdner = Path.Combine(_wurzel, "stick"); Directory.CreateDirectory(stickOrdner);
+        var sprachDatei = Path.Combine(_wurzel, "sprache");
+        var fertig = false;
+        var w = new HauptFenster(new Quelle(() => fertig ? [Fertig()] : [Stick() with { Hersteller = null, Modell = null }]), new Befehle(stickOrdner, beimSchreiben: () => fertig = true), ordner, holen,
+            (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 2, BinRoot = false })
+        { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null, SprachDatei = sprachDatei };
+        w.Show();
+        try
+        {
+            await Warten(() => Finde<Control>(w, "SeiteStick").IsVisible, "Seite Stick");
+            await Warten(() => Finde<ListBox>(w, "StickListe").ItemCount == 1, "Stick");
+            Assert.Equal("Step 2 of 4: Choose a stick", Finde<TextBlock>(w, "Untertitel").Text);
+            Assert.Equal("Next", Finde<Button>(w, "StickWeiter").Content);
+            Assert.Contains("(no model name)", ((IEnumerable<object>)Finde<ListBox>(w, "StickListe").ItemsSource!).First().ToString());
+            Bild(w, "7-englisch");
+
+            Click(Finde<Button>(w, "SpracheNl"));
+            await Warten(() => Finde<TextBlock>(w, "Untertitel").Text!.StartsWith("Stap 2"), "Niederländisch");
+            Assert.Equal("Volgende", Finde<Button>(w, "StickWeiter").Content);
+            await Warten(() => ((IEnumerable<object>)Finde<ListBox>(w, "StickListe").ItemsSource!).First().ToString()!.Contains("zonder modelnaam"), "Liste neu");
+            Assert.Equal("nl", File.ReadAllText(sprachDatei).Trim());
+            Bild(w, "8-niederlaendisch");
+
+            Click(Finde<Button>(w, "SpracheDe"));
+            await Warten(() => Finde<TextBlock>(w, "Untertitel").Text!.StartsWith("Schritt 2"), "Deutsch");
+            Assert.Equal("Weiter", Finde<Button>(w, "StickWeiter").Content);
+            Assert.Equal("de", File.ReadAllText(sprachDatei).Trim());
+            Bild(w, "9-deutsch");
+
+            // Bestätigungsseite und Ergebnis folgen dem Wechsel ebenfalls
+            Finde<ListBox>(w, "StickListe").SelectedIndex = 0;
+            Click(Finde<Button>(w, "StickWeiter"));
+            Click(Finde<Button>(w, "SpracheEn"));
+            await Warten(() => Finde<TextBlock>(w, "BestaetigenFrage").Text!.StartsWith("To confirm"), "Bestätigung englisch");
+            Assert.Contains("EVERYTHING on /dev/sdc", Finde<TextBlock>(w, "BestaetigenWarnung").Text);
+            Finde<TextBox>(w, "BestaetigenEingabe").Text = "sdc";
+            Click(Finde<Button>(w, "BestaetigenStart"));
+            await Warten(() => Finde<Control>(w, "SeiteErgebnis").IsVisible, "Ergebnis");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("The stick is ready.", Finde<TextBlock>(w, "ErgebnisTitel").Text);
+            Assert.Contains("The stick is ready (version 2026.11.18)", Finde<TextBlock>(w, "ErgebnisText").Text);
+            Bild(w, "10-ergebnis-englisch");
+            Click(Finde<Button>(w, "SpracheDe"));
+            await Warten(() => Finde<TextBlock>(w, "ErgebnisTitel").Text == "Der Stick ist fertig.", "Ergebnis deutsch");
+        }
+        finally { w.Close(); Sprache.Aktuell = "de"; }
     }
 
     static void Click(Button b) => b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

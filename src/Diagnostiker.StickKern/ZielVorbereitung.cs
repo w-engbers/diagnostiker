@@ -13,32 +13,32 @@ internal static class ZielVorbereitung
     {
         // 1. Der Mensch muss den Gerätenamen genau eintippen.
         if (!Bestaetigung.Stimmt(eingabe, gewaehlt))
-            return (null, "Bestätigung stimmt nicht, es wurde nichts verändert.");
+            return (null, Sprache.T("Bestätigung stimmt nicht, es wurde nichts verändert."));
 
         // 2. Das Laufwerk muss noch genau das sein, was gezeigt wurde.
         var aktuell = await Suchen(quelle, gewaehlt.Pfad, ct);
-        if (aktuell is null) return (null, $"{gewaehlt.Pfad} ist nicht mehr vorhanden, es wurde nichts verändert.");
+        if (aktuell is null) return (null, Sprache.T("{0} ist nicht mehr vorhanden, es wurde nichts verändert.", gewaehlt.Pfad));
         if (!Gleich(gewaehlt, aktuell))
-            return (null, $"{gewaehlt.Pfad} hat sich seit der Auswahl verändert (Größe, Modell oder Aufbau), es wurde nichts verändert.");
+            return (null, Sprache.T("{0} hat sich seit der Auswahl verändert (Größe, Modell oder Aufbau), es wurde nichts verändert.", gewaehlt.Pfad));
 
         // 3. Die Sicherheitsregeln gelten noch.
         var pruefung = Sicherheit.Pruefe(aktuell);
-        if (!pruefung.Erlaubt) return (null, $"{gewaehlt.Pfad} ist kein geeignetes Ziel: {string.Join(" ", pruefung.Gruende)}");
+        if (!pruefung.Erlaubt) return (null, Sprache.T("{0} ist kein geeignetes Ziel: {1}", gewaehlt.Pfad, string.Join(" ", pruefung.Gruende)));
 
         // 4. Eingehängte Partitionen aushängen (ohne Root über udisks).
         foreach (var teil in aktuell.Partitionen.Where(p => p.Einhaengepunkte.Count > 0))
         {
-            ausgabe($"Aushängen: {teil.Pfad}");
+            ausgabe(Sprache.T("Aushängen: {0}", teil.Pfad));
             var code = await befehle.AusfuehrenAsync("udisksctl", ["unmount", "-b", teil.Pfad], null, ausgabe, ct);
-            if (code != 0) return (null, $"{teil.Pfad} lässt sich nicht aushängen, es wurde nichts verändert.");
+            if (code != 0) return (null, Sprache.T("{0} lässt sich nicht aushängen, es wurde nichts verändert.", teil.Pfad));
         }
 
         // 5. Nach dem Aushängen noch einmal prüfen: nichts darf mehr eingehängt sein, das Laufwerk muss unverändert sein.
         var danach = await Suchen(quelle, gewaehlt.Pfad, ct);
-        if (danach is null) return (null, $"{gewaehlt.Pfad} ist verschwunden, es wurde nichts verändert.");
-        if (danach.AlleEinhaengepunkte.Any()) return (null, $"{gewaehlt.Pfad} ist noch eingehängt, es wurde nichts verändert.");
+        if (danach is null) return (null, Sprache.T("{0} ist verschwunden, es wurde nichts verändert.", gewaehlt.Pfad));
+        if (danach.AlleEinhaengepunkte.Any()) return (null, Sprache.T("{0} ist noch eingehängt, es wurde nichts verändert.", gewaehlt.Pfad));
         if (danach.Groesse != gewaehlt.Groesse || !Sicherheit.Pruefe(danach).Erlaubt)
-            return (null, $"{gewaehlt.Pfad} hat sich verändert, es wurde nichts verändert.");
+            return (null, Sprache.T("{0} hat sich verändert, es wurde nichts verändert.", gewaehlt.Pfad));
         return (danach, null);
     }
 

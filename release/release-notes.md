@@ -18,4 +18,4 @@ Requirements: Linux with a graphical desktop, a USB stick of 4 to 512 GiB, and t
 
 The source code of this release is the repository at the tag of this release. Licensed under GPL-3.0.
 
-*Early test version; the interface is in German only for now.*
+*Early test version. The stick manager speaks English, German and Dutch; the diagnostic program on the stick itself is in German only for now.*

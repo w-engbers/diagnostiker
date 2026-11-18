@@ -26,13 +26,13 @@ public sealed class OrdnerQuelle(string ordner) : IPaketQuelle
 
     public async Task<byte[]> LesenAsync(string name, CancellationToken ct)
     {
-        if (!File.Exists(Pfad(name))) throw new PaketException($"{name} fehlt in {ordner}.");
+        if (!File.Exists(Pfad(name))) throw new PaketException(Sprache.T("{0} fehlt in {1}.", name, ordner));
         return await File.ReadAllBytesAsync(Pfad(name), ct);
     }
 
     public async Task HerunterladenAsync(string name, string ziel, long erwarteteGroesse, Action<long>? fortschritt, CancellationToken ct)
     {
-        if (!File.Exists(Pfad(name))) throw new PaketException($"{name} fehlt in {ordner}.");
+        if (!File.Exists(Pfad(name))) throw new PaketException(Sprache.T("{0} fehlt in {1}.", name, ordner));
         await using var ein = File.OpenRead(Pfad(name));
         await using var aus = File.Create(ziel);
         var puffer = new byte[1 << 20]; long summe = 0; int n;
@@ -57,7 +57,7 @@ public sealed class HttpQuelle : IPaketQuelle
 
     public HttpQuelle(string basis, HttpClient? http = null, string? githubRepo = null)
     {
-        if (!basis.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) throw new PaketException("Pakete werden nur über HTTPS geladen.");
+        if (!basis.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) throw new PaketException(Sprache.T("Pakete werden nur über HTTPS geladen."));
         _basis = basis.TrimEnd('/');
         _repo = githubRepo;
         _http = http ?? new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
@@ -76,10 +76,10 @@ public sealed class HttpQuelle : IPaketQuelle
     public async Task<byte[]> LesenAsync(string name, CancellationToken ct)
     {
         using var antwort = await _http.GetAsync($"{_basis}/{name}", HttpCompletionOption.ResponseContentRead, ct);
-        if (antwort.StatusCode == HttpStatusCode.NotFound) throw new PaketException($"{name} wurde unter {_basis} nicht gefunden.");
+        if (antwort.StatusCode == HttpStatusCode.NotFound) throw new PaketException(Sprache.T("{0} wurde unter {1} nicht gefunden.", name, _basis));
         antwort.EnsureSuccessStatusCode();
         var bytes = await antwort.Content.ReadAsByteArrayAsync(ct);
-        if (bytes.Length > 1 << 20) throw new PaketException($"{name} ist ungewöhnlich groß.");
+        if (bytes.Length > 1 << 20) throw new PaketException(Sprache.T("{0} ist ungewöhnlich groß.", name));
         return bytes;
     }
 
@@ -90,8 +90,8 @@ public sealed class HttpQuelle : IPaketQuelle
         using var anfrage = new HttpRequestMessage(HttpMethod.Get, $"{_basis}/{name}");
         if (vorhanden > 0) anfrage.Headers.Range = new RangeHeaderValue(vorhanden, null);
         using var antwort = await _http.SendAsync(anfrage, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (antwort.StatusCode == HttpStatusCode.NotFound) throw new PaketException($"{name} wurde unter {_basis} nicht gefunden.");
-        if (antwort.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable) { File.Delete(ziel); vorhanden = 0; throw new PaketException("Der Server kann den Download nicht fortsetzen. Bitte erneut starten."); }
+        if (antwort.StatusCode == HttpStatusCode.NotFound) throw new PaketException(Sprache.T("{0} wurde unter {1} nicht gefunden.", name, _basis));
+        if (antwort.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable) { File.Delete(ziel); vorhanden = 0; throw new PaketException(Sprache.T("Der Server kann den Download nicht fortsetzen. Bitte erneut starten.")); }
         antwort.EnsureSuccessStatusCode();
         var anhaengen = vorhanden > 0 && antwort.StatusCode == HttpStatusCode.PartialContent;
         if (!anhaengen) vorhanden = 0;
@@ -102,7 +102,7 @@ public sealed class HttpQuelle : IPaketQuelle
         {
             await aus.WriteAsync(puffer.AsMemory(0, n), ct);
             summe += n; fortschritt?.Invoke(summe);
-            if (summe > erwarteteGroesse) throw new PaketException($"{name} ist größer als im Manifest angegeben.");
+            if (summe > erwarteteGroesse) throw new PaketException(Sprache.T("{0} ist größer als im Manifest angegeben.", name));
         }
     }
 }

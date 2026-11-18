@@ -7,7 +7,8 @@ maar is bedoeld voor iedereen die moet uitzoeken waarom een computer problemen g
 begrijpelijk rapport over de schijf, het opstarten en het netwerk.
 
 > **Status: vroege testversie.** De stick werkt en start op (BIOS en UEFI, Secure Boot blijft ingeschakeld) en heeft een programma met venster om hem te maken.
-> De interface van zowel de stick als dat programma is **voorlopig alleen in het Duits**; meer talen zijn gepland.
+> Het programma om de stick te maken is er in het Engels, Duits en Nederlands (kies de taal bovenaan het venster). Het controleprogramma op de stick zelf
+> is **voorlopig alleen in het Duits**; meer talen zijn gepland.
 
 ## Wat de stick controleert
 

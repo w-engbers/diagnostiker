@@ -7,7 +7,8 @@ entstanden, soll aber jedem helfen, der herausfinden muss, warum ein Rechner Pro
 klaren, verständlichen Bericht zu Platte, Startvorgang und Netzwerk.
 
 > **Stand: frühe Testversion.** Der Stick funktioniert und startet (BIOS und UEFI, Secure Boot bleibt eingeschaltet) und hat ein Erstellwerkzeug mit Fenster.
-> Die Oberfläche von Stick und Erstellwerkzeug gibt es **vorerst nur auf Deutsch**, weitere Sprachen sind geplant.
+> Das Erstellwerkzeug gibt es auf Englisch, Deutsch und Niederländisch (die Sprache wählt man oben im Fenster). Das Prüfprogramm auf dem Stick selbst
+> gibt es **vorerst nur auf Deutsch**, weitere Sprachen sind geplant.
 
 ## Was der Stick prüft
 

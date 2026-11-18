@@ -50,9 +50,9 @@ public sealed class PaketHolen(Vertrauen vertrauen, VertrauensSpeicher? speicher
 
     public async Task<GeholtesPaket> HolenAsync(IPaketQuelle quelle, Action<string> meldung, Action<string, long, long>? fortschritt, CancellationToken ct)
     {
-        meldung($"Paketliste lesen ({quelle.Beschreibung}) …");
+        meldung(Sprache.T("Paketliste lesen ({0}) …", quelle.Beschreibung));
         var (m, fest) = await ManifestPruefenAsync(quelle, ct);
-        meldung($"Version {m.Version} (erstellt {m.Erstellt:yyyy-MM-dd}): Die Signatur des Herausgebers ist in Ordnung.");
+        meldung(Sprache.T("Version {0} (erstellt {1}): Die Signatur des Herausgebers ist in Ordnung.", m.Version, m.Erstellt.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)));
 
         var ordner = Path.Combine(zwischenspeicher, m.Version);
         Directory.CreateDirectory(ordner);
@@ -61,7 +61,7 @@ public sealed class PaketHolen(Vertrauen vertrauen, VertrauensSpeicher? speicher
         var fehlend = m.Dateien.Where(d => !File.Exists(Path.Combine(ordner, d.Name)) || new FileInfo(Path.Combine(ordner, d.Name)).Length != d.Groesse).Sum(d => d.Groesse);
         var frei = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(ordner))!).AvailableFreeSpace;
         if (fehlend > 0 && frei < fehlend + (256L << 20))
-            throw new PaketException($"Im Zwischenspeicher ({ordner}) ist zu wenig Platz: {Sicherheit.Groesse(fehlend)} nötig, {Sicherheit.Groesse(frei)} frei.");
+            throw new PaketException(Sprache.T("Im Zwischenspeicher ({0}) ist zu wenig Platz: {1} nötig, {2} frei.", ordner, Sicherheit.Groesse(fehlend), Sicherheit.Groesse(frei)));
 
         // Manifest und Signatur ablegen (zur Nachvollziehbarkeit).
         File.WriteAllBytes(Path.Combine(ordner, PaketBauer.ManifestName), await fest.LesenAsync(PaketBauer.ManifestName, ct));
@@ -71,13 +71,13 @@ public sealed class PaketHolen(Vertrauen vertrauen, VertrauensSpeicher? speicher
         {
             var ziel = Path.Combine(ordner, d.Name);
             if (File.Exists(ziel) && new FileInfo(ziel).Length == d.Groesse && PruefOk(ziel, d))
-            { meldung($"{d.Name}: bereits vorhanden und geprüft."); continue; }
+            { meldung(Sprache.T("{0}: bereits vorhanden und geprüft.", d.Name)); continue; }
 
             var teil = ziel + ".teil";
-            meldung($"{d.Name} laden ({Sicherheit.Groesse(d.Groesse)}) …");
+            meldung(Sprache.T("{0} laden ({1}) …", d.Name, Sicherheit.Groesse(d.Groesse)));
             await fest.HerunterladenAsync(d.Name, teil, d.Groesse, b => fortschritt?.Invoke(d.Name, b, d.Groesse), ct);
-            meldung($"{d.Name} prüfen …");
-            try { PaketPruefer.DateiPruefen(teil, d, b => fortschritt?.Invoke(d.Name + " prüfen", b, d.Groesse)); }
+            meldung(Sprache.T("{0} prüfen …", d.Name));
+            try { PaketPruefer.DateiPruefen(teil, d, b => fortschritt?.Invoke(Sprache.T("{0} prüfen …", d.Name), b, d.Groesse)); }
             catch (PaketException) { File.Delete(teil); throw; }
             File.Move(teil, ziel, overwrite: true);
         }

@@ -14,11 +14,11 @@ public static class LaufwerkLeser
         foreach (var a in new[] { "-J", "-b", "-e7", "-o", LsblkParser.Spalten }) psi.ArgumentList.Add(a);
         psi.Environment["LC_ALL"] = "C";
 
-        using var p = Process.Start(psi) ?? throw new InvalidOperationException("lsblk lässt sich nicht starten.");
+        using var p = Process.Start(psi) ?? throw new InvalidOperationException(Sprache.T("lsblk lässt sich nicht starten."));
         var ausgabe = await p.StandardOutput.ReadToEndAsync(ct);
         var fehler = await p.StandardError.ReadToEndAsync(ct);
         await p.WaitForExitAsync(ct);
-        if (p.ExitCode != 0) throw new InvalidOperationException($"lsblk fehlgeschlagen: {fehler.Trim()}");
+        if (p.ExitCode != 0) throw new InvalidOperationException(Sprache.T("lsblk fehlgeschlagen: {0}", fehler.Trim()));
         return LsblkParser.Lesen(ausgabe);
     }
 }

@@ -10,6 +10,6 @@ public static class PaketQuellen
         if (angabe is null) return HttpQuelle.GitHub(StandardRepo);
         if (angabe.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return new HttpQuelle(angabe);
         if (Directory.Exists(angabe)) return new OrdnerQuelle(Path.GetFullPath(angabe));
-        throw new PaketException($"„{angabe}“ ist weder ein Ordner noch eine https-Adresse.");
+        throw new PaketException(Sprache.T("„{0}“ ist weder ein Ordner noch eine https-Adresse.", angabe));
     }
 }

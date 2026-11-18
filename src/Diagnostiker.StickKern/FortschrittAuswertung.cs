@@ -11,7 +11,8 @@ namespace Diagnostiker.StickKern;
 public sealed partial class FortschrittAuswertung(long abbildBytes)
 {
     /// <summary>Klartext des aktuellen Schritts (leer, solange noch nichts gemeldet wurde).</summary>
-    public string Schritt { get; private set; } = "";
+    public string Schritt => _schritt.Length == 0 ? "" : Sprache.T(_schritt);
+    string _schritt = "";
     /// <summary>Fortschritt des aktuellen Schritts, 0 bis 100, oder null, wenn er sich nicht bemessen lässt.</summary>
     public double? Prozent { get; private set; }
     /// <summary>Zuletzt gemeldete Geschwindigkeit, zum Beispiel „18,4 MB/s“ (leer, wenn unbekannt).</summary>
@@ -35,6 +36,9 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
         ("Daten sichern", "Stick sichern und aushängen", 97, 3, false),
     ];
 
+    /// <summary>Alle Schrittbeschreibungen (deutsch, Schlüssel für den Katalog); für den Test der Vollständigkeit.</summary>
+    public static IEnumerable<string> SchrittTexte => Schritte.Select(x => x.Text).Append("Fertig");
+
     int _index = -1;
     bool _echt;          // echte Schreibmenge vom Kernel bekannt: die dd-Zeilen (Zwischenspeicher) zählen dann nicht mehr
 
@@ -49,7 +53,7 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
             if (!z.Contains(Schritte[i].Kennung, StringComparison.Ordinal)) continue;
             if (i < _index) break;               // nie rückwärts (z. B. Meldungen, die Wörter eines früheren Schritts enthalten)
             _index = i;
-            Schritt = Schritte[i].Text;
+            _schritt = Schritte[i].Text;
             if (!(_echt && i is 2 or 3))
             {
                 Prozent = Schritte[i].Messbar ? 0 : null;
@@ -65,7 +69,7 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
             var bytes = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
             Prozent = Math.Clamp(bytes * 100 / abbildBytes, 0, 100);
             Gesamt = Schritte[_index].Anfang + Schritte[_index].Breite * Prozent.Value / 100;
-            Geschwindigkeit = m.Groups[2].Success ? m.Groups[2].Value.Replace('.', ',') : Geschwindigkeit;
+            Geschwindigkeit = m.Groups[2].Success ? Sprache.Zahl(double.Parse(m.Groups[2].Value.Split(' ')[0].Replace(',', '.'), CultureInfo.InvariantCulture), "0.0#") + " " + m.Groups[2].Value.Split(' ')[1] : Geschwindigkeit;
             return true;
         }
         return false;
@@ -83,12 +87,12 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
         var p = Math.Clamp(bytes * 100.0 / abbildBytes, 0, 100);
         Prozent = p;
         Gesamt = Math.Max(Gesamt, Schritte[2].Anfang + (Schritte[3].Anfang + Schritte[3].Breite - Schritte[2].Anfang) * Math.Min(p, 99) / 100);
-        if (sekunden >= 1) Geschwindigkeit = (bytes / sekunden / 1e6).ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',') + " MB/s";
+        if (sekunden >= 1) Geschwindigkeit = Sprache.Zahl(bytes / sekunden / 1e6, "0.0") + " MB/s";
         return true;
     }
 
     /// <summary>Alles abgeschlossen: Balken auf 100.</summary>
-    public void Fertig() { Gesamt = 100; Prozent = 100; Schritt = "Fertig"; Geschwindigkeit = ""; }
+    public void Fertig() { Gesamt = 100; Prozent = 100; _schritt = "Fertig"; Geschwindigkeit = ""; }
 
     [GeneratedRegex(@"^(\d+) bytes .*copied, [\d.,]+ s, ([\d.,]+ [kKMG]?B/s)")]
     private static partial Regex DdZeile();

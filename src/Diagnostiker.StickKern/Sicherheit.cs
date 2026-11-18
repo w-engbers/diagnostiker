@@ -27,23 +27,23 @@ public static partial class Sicherheit
         var hinweise = new List<string>();
 
         if (!GueltigerPfad().IsMatch(l.Pfad))
-            gruende.Add($"Ungültiger Gerätename: {l.Pfad}");
+            gruende.Add(Sprache.T("Ungültiger Gerätename: {0}", l.Pfad));
 
         if (!string.Equals(l.Transport, "usb", StringComparison.OrdinalIgnoreCase))
-            gruende.Add($"Kein USB-Laufwerk (Anschluss: {l.Transport ?? "unbekannt"}).");
+            gruende.Add(Sprache.T("Kein USB-Laufwerk (Anschluss: {0}).", l.Transport ?? Sprache.T("unbekannt")));
 
         if (l.SchreibGeschuetzt)
-            gruende.Add("Schreibgeschützt.");
+            gruende.Add(Sprache.T("Schreibgeschützt."));
 
         if (l.Groesse < min)
-            gruende.Add($"Zu klein ({Groesse(l.Groesse)}, mindestens {Groesse(min)}).");
+            gruende.Add(Sprache.T("Zu klein ({0}, mindestens {1}).", Groesse(l.Groesse), Groesse(min)));
         if (l.Groesse > max)
-            gruende.Add($"Zu groß ({Groesse(l.Groesse)}, mehr als {Groesse(max)}): vermutlich eine Datenplatte, kein Stick.");
+            gruende.Add(Sprache.T("Zu groß ({0}, mehr als {1}): vermutlich eine Datenplatte, kein Stick.", Groesse(l.Groesse), Groesse(max)));
 
         foreach (var ort in l.AlleEinhaengepunkte.Distinct())
         {
             if (!ErlaubterOrt(ort, orte))
-                gruende.Add($"Wird vom System benutzt (eingehängt unter {ort}).");
+                gruende.Add(Sprache.T("Wird vom System benutzt (eingehängt unter {0}).", ort));
         }
 
         if (gruende.Count == 0)
@@ -52,13 +52,13 @@ public static partial class Sicherheit
             {
                 var liste = string.Join(", ", l.Partitionen.Select(p =>
                     $"{p.Bezeichnung ?? p.Pfad}{(p.Dateisystem is null ? "" : $" ({p.Dateisystem}, {Groesse(p.Groesse)})")}"));
-                hinweise.Add($"Enthält {l.Partitionen.Count} Partition(en): {liste}. Alles darauf wird gelöscht.");
+                hinweise.Add(Sprache.T("Enthält {0} Partition(en): {1}. Alles darauf wird gelöscht.", l.Partitionen.Count, liste));
             }
-            else hinweise.Add("Keine Partitionen erkannt (leer oder unformatiert).");
+            else hinweise.Add(Sprache.T("Keine Partitionen erkannt (leer oder unformatiert)."));
 
             var eingehaengt = l.AlleEinhaengepunkte.Distinct().ToList();
             if (eingehaengt.Count > 0)
-                hinweise.Add($"Ist eingehängt unter {string.Join(", ", eingehaengt)} und wird vorher ausgehängt.");
+                hinweise.Add(Sprache.T("Ist eingehängt unter {0} und wird vorher ausgehängt.", string.Join(", ", eingehaengt)));
         }
 
         return new Pruefung(gruende.Count == 0, gruende, hinweise);
@@ -73,7 +73,7 @@ public static partial class Sicherheit
         double wert = bytes; var i = 0;
         while (wert >= 1024 && i < einheiten.Length - 1) { wert /= 1024; i++; }
         // Kultur-unabhängig mit deutschem Komma: Die Kultur "de-DE" gibt es im "invarianten" Modus (Live-System) nicht.
-        return wert.ToString("0.#", CultureInfo.InvariantCulture).Replace('.', ',') + " " + einheiten[i];
+        return Sprache.Zahl(wert, "0.#") + " " + einheiten[i];
     }
 }
 

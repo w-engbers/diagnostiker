@@ -7,7 +7,8 @@ but it is meant for anyone who has to find out why a computer misbehaves. Plug i
 report on the disk, the boot process and the network.
 
 > **Status: early test version.** The stick works and boots (BIOS and UEFI, Secure Boot stays on) and has a window-based creation tool.
-> The interface of both the stick and the creation tool is **in German only** for now; more languages are planned.
+> The creation tool speaks English, German and Dutch (choose the language at the top of the window). The diagnostic program on the stick itself is
+> **in German only** for now; more languages are planned.
 
 ## What the stick checks
 

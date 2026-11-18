@@ -55,6 +55,12 @@ dann Ergebnis. Während des Schreibens lässt sich das Fenster nicht schließen.
 ganzer Ablauf mit Attrappen, Bilder der Seiten mit `DIAGNOSTIKER_BILDER=<Ordner> dotnet test tests/Diagnostiker.GuiTests`). Der Stick-Manager selbst ist nicht signiert (nur `SHA256SUMS` im Release),
 die Pakete, die er lädt, schon.
 
+**Sprachen (Englisch, Deutsch, Niederländisch):** Oben im Fenster stehen drei Schaltflächen mit Flagge und Name. Englisch ist die Standardsprache, die letzte Wahl steht in
+`~/.config/diagnostiker/sprache` (oder `DIAGNOSTIKER_SPRACHE=de|en|nl`). Der deutsche Text steht im Code und ist der Schlüssel; `StickKern/Katalog.cs` enthält Englisch und Niederländisch
+(`Sprache.T("Text {0}", arg)`, wie gettext). Der Kern beginnt auf Deutsch (Eingabezeile, Tests), das Fenster stellt die gewählte Sprache ein. Tests (`SpracheTests`): jeder im Code benutzte Text steht
+im Katalog, jeder Katalogeintrag ist übersetzt und hat dieselben Platzhalter, und es gibt keine unbenutzten Einträge. **Neue Meldungen also immer mit `Sprache.T(...)` schreiben und im Katalog ergänzen.**
+Das Protokollfeld „Einzelheiten“ und die Datei `letzter-lauf.log` zeigen die Ausgabe des Helferskripts unübersetzt (deutsch, technisch). Ein Ergebnis, das schon angezeigt wird, bleibt beim Sprachwechsel in der Sprache, in der es entstand.
+
 **Mit der Eingabezeile** (braucht das .NET-SDK):
 
 ```
@@ -93,5 +99,5 @@ UEFI/Secure Boot).
 - Langsame Sticks: Bei USB 2 und einfachen Controllern dauerte das Schreiben von 2,5 GiB rund 14 Minuten. Der Helfer zeigt Uhrzeiten, das Programm schreibt ein Protokoll nach `~/.cache/diagnostiker/letzter-lauf.log`.
 - Sicherung gegen das Einspielen einer älteren, gültig signierten Version (Rückfallangriff) ist nicht eingebaut.
 - Aktualisieren eines vorhandenen Sticks aus einem Paket (heute nur Neuerstellen; der Docker-Weg `aktualisieren` bleibt).
-- Sprachgrundlage: Die Texte des Fensters stehen gesammelt in `Texte.cs`, die Meldungen des Kerns und die Bewertungsregeln der Prüfmodule sind noch deutsche Textstücke. Entscheidung zur Sprache der Oberfläche (nur Deutsch oder weitere) steht aus.
+- Sprache: Das Fenster und die Meldungen des Kerns sind dreisprachig (siehe unten). Das Prüfprogramm auf dem Stick (Oberfläche, Prüfmodule, Bewertungsregeln) ist noch nur deutsch.
 - Fenster: Aktualisieren eines vorhandenen Sticks, Funktionen ein- und ausschalten, Sprachwahl (später).

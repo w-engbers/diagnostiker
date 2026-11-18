@@ -7,6 +7,43 @@
   <Grid RowDefinitions="Auto,*,Auto" Margin="24">
 
     <StackPanel Grid.Row="0" Spacing="4" Margin="0,0,0,16">
+      <!-- Sprachauswahl: Flagge und Name, die gewählte Sprache ist hervorgehoben -->
+      <StackPanel Name="SpracheLeiste" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,0,0,6">
+        <Button Name="SpracheEn" Padding="8,4" ToolTip.Tip="English">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
+              <Rectangle Width="24" Height="16" Fill="#012169"/>
+              <Path Data="M0,0 L24,16 M24,0 L0,16" Stroke="White" StrokeThickness="3.2"/>
+              <Path Data="M0,0 L24,16 M24,0 L0,16" Stroke="#C8102E" StrokeThickness="1.1"/>
+              <Rectangle Canvas.Left="9.5" Width="5" Height="16" Fill="White"/>
+              <Rectangle Canvas.Top="5.5" Width="24" Height="5" Fill="White"/>
+              <Rectangle Canvas.Left="10.5" Width="3" Height="16" Fill="#C8102E"/>
+              <Rectangle Canvas.Top="6.5" Width="24" Height="3" Fill="#C8102E"/>
+            </Canvas>
+            <TextBlock Text="English" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Name="SpracheDe" Padding="8,4" ToolTip.Tip="Deutsch">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
+              <Rectangle Width="24" Height="5.4" Fill="#000000"/>
+              <Rectangle Canvas.Top="5.3" Width="24" Height="5.4" Fill="#DD0000"/>
+              <Rectangle Canvas.Top="10.6" Width="24" Height="5.4" Fill="#FFCE00"/>
+            </Canvas>
+            <TextBlock Text="Deutsch" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Name="SpracheNl" Padding="8,4" ToolTip.Tip="Nederlands">
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <Canvas Width="24" Height="16" ClipToBounds="True" VerticalAlignment="Center">
+              <Rectangle Width="24" Height="5.4" Fill="#AE1C28"/>
+              <Rectangle Canvas.Top="5.3" Width="24" Height="5.4" Fill="#FFFFFF"/>
+              <Rectangle Canvas.Top="10.6" Width="24" Height="5.4" Fill="#21468B"/>
+            </Canvas>
+            <TextBlock Text="Nederlands" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </StackPanel>
       <TextBlock Text="Diagnostiker" FontSize="26" FontWeight="SemiBold"/>
       <TextBlock Name="Untertitel" Opacity="0.7" FontSize="15"/>
     </StackPanel>
@@ -54,7 +91,7 @@
         <ProgressBar Name="SchreibenBalken" Grid.Row="1" Minimum="0" Maximum="100" Height="12" Margin="0,10,0,4"/>
         <TextBlock Name="SchreibenTempo" Grid.Row="2" Opacity="0.7"/>
         <TextBlock Name="SchreibenHinweis" Grid.Row="3" TextWrapping="Wrap" Margin="0,8,0,8" Opacity="0.85"/>
-        <Expander Grid.Row="4" Header="Einzelheiten">
+        <Expander Name="SchreibenDetails" Grid.Row="4" Header="Details">
           <TextBox Name="SchreibenLog" IsReadOnly="True" AcceptsReturn="True" FontFamily="monospace" FontSize="12" Height="180"/>
         </Expander>
       </Grid>

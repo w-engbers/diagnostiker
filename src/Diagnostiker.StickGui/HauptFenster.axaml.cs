@@ -25,7 +25,12 @@ public partial class HauptFenster : Window
     GeholtesPaket? _paket;
     List<Laufwerk> _geeignet = [];
     Laufwerk? _gewaehlt;
-    bool _beschaeftigt;                 // Paket wird geladen oder Stick wird geschrieben: Fenster darf nicht geschlossen werden
+    bool _beschaeftigtWert;
+    /// <summary>Paket wird geladen oder Stick wird geschrieben: Das Fenster lässt sich nicht schließen, die Sprache nicht wechseln.</summary>
+    bool Beschaeftigt { get => _beschaeftigtWert; set { _beschaeftigtWert = value; SpracheLeiste.IsEnabled = !value; } }
+    Seite _seite = Seite.Paket;
+    bool _letzterErfolg;
+    string _letztesProtokoll = "";
     int _ddZaehler;
 
     /// <summary>Pfad der Protokolldatei (null = Standard unter ~/.cache/diagnostiker; im Test ein Wegwerfordner).</summary>
@@ -48,6 +53,9 @@ public partial class HauptFenster : Window
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or FormatException) { return null; }
     }
 
+    /// <summary>Datei, in der die gewählte Sprache gemerkt wird (null = Standard unter ~/.config/diagnostiker; im Test ein Wegwerfpfad).</summary>
+    public string? SprachDatei { get; set; }
+
     /// <summary>Pause der automatischen Laufwerksliste (kurz im Test).</summary>
     public TimeSpan Aktualisierung { get => _aktualisierung.Interval; set => _aktualisierung.Interval = value; }
 
@@ -57,7 +65,6 @@ public partial class HauptFenster : Window
         Func<ILaufwerkQuelle, IBefehlsausfuehrer, PaketStickErsteller>? erstellerFabrik)
     {
         InitializeComponent();
-        Title = Texte.Titel;
         _laufwerkQuelle = laufwerke ?? new LsblkQuelle();
         _befehle = befehle ?? new ProzessBefehle();
         _quellenangabe = quellenangabe;
@@ -67,7 +74,6 @@ public partial class HauptFenster : Window
         _aktualisierung = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _aktualisierung.Tick += async (_, _) => await LaufwerkeAktualisierenAsync();
 
-        StickErklaerung.Text = Texte.StickErklaerung;
                 PaketNochmal.Click += async (_, _) => await PaketLadenAsync();
         PaketOrdner.Click += async (_, _) => await OrdnerWaehlenAsync();
         StickListe.SelectionChanged += (_, _) => StickAuswahlGeaendert();
@@ -78,24 +84,27 @@ public partial class HauptFenster : Window
         BestaetigenStart.Click += async (_, _) => await ErstellenAsync();
         ErgebnisNochEiner.Click += (_, _) => ZuStickWahl();
         ErgebnisSchliessen.Click += (_, _) => Close();
-        Closing += (_, e) => { if (_beschaeftigt) { e.Cancel = true; Fusszeile.Text = Texte.SchliessenGesperrt; } };
+        SpracheEn.Click += async (_, _) => await SpracheWaehlenAsync("en");
+        SpracheDe.Click += async (_, _) => await SpracheWaehlenAsync("de");
+        SpracheNl.Click += async (_, _) => await SpracheWaehlenAsync("nl");
+        Closing += (_, e) => { if (Beschaeftigt) { e.Cancel = true; Fusszeile.Text = Texte.SchliessenGesperrt; } };
         Opened += async (_, _) => await PaketLadenAsync();
         Closed += (_, _) => _aktualisierung.Stop();
+        Beschriften();
         Zeige(Seite.Paket);
+        PaketStatus.Text = Texte.PaketSuche;          // schon beim ersten Zeichnen etwas zeigen, nicht erst nach dem Öffnen
+        PaketBalken.IsIndeterminate = true;
     }
 
     void Zeige(Seite s)
     {
+        _seite = s;
         SeitePaket.IsVisible = s == Seite.Paket;
         SeiteStick.IsVisible = s == Seite.Stick;
         SeiteBestaetigen.IsVisible = s == Seite.Bestaetigen;
         SeiteSchreiben.IsVisible = s == Seite.Schreiben;
         SeiteErgebnis.IsVisible = s == Seite.Ergebnis;
-        Untertitel.Text = s switch
-        {
-            Seite.Paket => Texte.UntertitelPaket, Seite.Stick => Texte.UntertitelStick, Seite.Bestaetigen => Texte.UntertitelBestaetigen,
-            Seite.Schreiben => Texte.UntertitelSchreiben, _ => Texte.UntertitelErgebnis,
-        };
+        UntertitelSetzen();
         if (s != Seite.Stick) _aktualisierung.Stop();
         Fusszeile.Text = s == Seite.Schreiben ? "" : Fusszeile.Text;
     }
@@ -104,8 +113,8 @@ public partial class HauptFenster : Window
 
     async Task PaketLadenAsync()
     {
-        if (_beschaeftigt) return;
-        _beschaeftigt = true;
+        if (Beschaeftigt) return;
+        Beschaeftigt = true;
         Zeige(Seite.Paket);
         PaketNochmal.IsVisible = PaketOrdner.IsVisible = false;
         PaketStatus.Text = Texte.PaketSuche;
@@ -117,29 +126,30 @@ public partial class HauptFenster : Window
         {
             var quelle = PaketQuellen.Aus(_ordnerQuelle ?? _quellenangabe);
             _paket = await _holen.HolenAsync(quelle,
-                z => Dispatcher.UIThread.Post(() => { if (!_beschaeftigt) return; PaketStatus.Text = z.Contains("laden") ? Texte.PaketLaedt : PaketStatus.Text; PaketDetail.Text = z; }),
+                z => Dispatcher.UIThread.Post(() => { if (!Beschaeftigt) return; PaketDetail.Text = z; }),
                 (name, bytes, gesamt) => Dispatcher.UIThread.Post(() =>
                 {
-                    if (!_beschaeftigt) return;             // späte Meldungen dürfen das Endergebnis nicht überschreiben
+                    if (!Beschaeftigt) return;             // späte Meldungen dürfen das Endergebnis nicht überschreiben
+                    PaketStatus.Text = Texte.PaketLaedt;
                     PaketBalken.IsIndeterminate = false;
                     PaketBalken.Value = gesamt > 0 ? bytes * 100.0 / gesamt : 0;
-                    PaketDetail.Text = $"{name}: {Sicherheit.Groesse(bytes)} von {Sicherheit.Groesse(gesamt)}";
+                    PaketDetail.Text = Texte.Fortschritt(name, Sicherheit.Groesse(bytes), Sicherheit.Groesse(gesamt));
                 }), CancellationToken.None);
             PaketBalken.IsIndeterminate = false;
             PaketBalken.Value = 100;
-            PaketStatus.Text = string.Format(Texte.PaketOk, _paket.Manifest.Version);
+            PaketStatus.Text = Texte.PaketOk(_paket.Manifest.Version);
             PaketDetail.Text = "";
-            _beschaeftigt = false;
+            Beschaeftigt = false;
             ZuStickWahl();
         }
         catch (Exception e) when (e is PaketException or HttpRequestException or IOException or UnauthorizedAccessException)
         {
-            _beschaeftigt = false;
+            Beschaeftigt = false;
             PaketBalken.IsIndeterminate = false;
             PaketBalken.Value = 0;
             PaketStatus.Text = Texte.PaketFehler;
             PaketStatus.Foreground = Brushes.IndianRed;
-            PaketDetail.Text = e is HttpRequestException ? "Keine Verbindung oder das Paket ist nicht erreichbar. " + e.Message : e.Message;
+            PaketDetail.Text = e is HttpRequestException ? Texte.KeineVerbindung(e.Message) : e.Message;
             PaketNochmal.IsVisible = PaketOrdner.IsVisible = true;
         }
     }
@@ -170,7 +180,7 @@ public partial class HauptFenster : Window
         if (!SeiteStick.IsVisible) return;
         List<Laufwerk> neu;
         try { neu = (await _laufwerkQuelle.LesenAsync(CancellationToken.None)).Where(l => Sicherheit.Pruefe(l).Erlaubt).ToList(); }
-        catch (Exception e) { StickDetail.Text = "Die Laufwerke lassen sich nicht lesen: " + e.Message; return; }
+        catch (Exception e) { StickDetail.Text = Texte.LaufwerkeNichtLesbar(e.Message); return; }
         if (!SeiteStick.IsVisible) return;
         if (neu.Select(l => l.Pfad + l.Groesse).SequenceEqual(_geeignet.Select(l => l.Pfad + l.Groesse)) && StickListe.ItemCount == neu.Count)
         {
@@ -203,13 +213,19 @@ public partial class HauptFenster : Window
         var i = StickListe.SelectedIndex;
         if (i < 0 || i >= _geeignet.Count) return;
         _gewaehlt = _geeignet[i];
-        BestaetigenStick.Text = $"{_gewaehlt.Pfad}   {_gewaehlt.Beschreibung}   {Sicherheit.Groesse(_gewaehlt.Groesse)}";
-        BestaetigenWarnung.Text = string.Format(Texte.BestaetigenWarnung, _gewaehlt.Pfad);
-        BestaetigenFrage.Text = string.Format(Texte.BestaetigenFrage, Bestaetigung.Erwartet(_gewaehlt));
+        BestaetigenTexte();
         BestaetigenEingabe.Text = "";
         BestaetigenStart.IsEnabled = false;
         Zeige(Seite.Bestaetigen);
         BestaetigenEingabe.Focus();
+    }
+
+    void BestaetigenTexte()
+    {
+        if (_gewaehlt is null) return;
+        BestaetigenStick.Text = $"{_gewaehlt.Pfad}   {_gewaehlt.Beschreibung}   {Sicherheit.Groesse(_gewaehlt.Groesse)}";
+        BestaetigenWarnung.Text = Texte.BestaetigenWarnung(_gewaehlt.Pfad);
+        BestaetigenFrage.Text = Texte.BestaetigenFrage(Bestaetigung.Erwartet(_gewaehlt));
     }
 
     // ---------------------------------------------------------------- 4: Schreiben
@@ -217,13 +233,13 @@ public partial class HauptFenster : Window
     async Task ErstellenAsync()
     {
         if (_gewaehlt is null || _paket is null || !Bestaetigung.Stimmt(BestaetigenEingabe.Text, _gewaehlt)) return;
-        _beschaeftigt = true;
+        Beschaeftigt = true;
         _ddZaehler = 0;
         var eingabe = BestaetigenEingabe.Text;
         var auswertung = new FortschrittAuswertung(_paket.Manifest.Boot.EntpacktGroesse ?? 0);
         Zeige(Seite.Schreiben);
         SchreibenLog.Text = "";
-        SchreibenSchritt.Text = "Stick wird vorbereitet …";
+        SchreibenSchritt.Text = Texte.SchreibenVorbereitung;
         SchreibenBalken.Value = 0;
         SchreibenTempo.Text = "";
         SchreibenHinweis.Text = Texte.SchreibenPasswort;
@@ -247,6 +263,8 @@ public partial class HauptFenster : Window
             protokollPfad = log.Pfad;
             log.Schreiben($"Start: {_gewaehlt.Pfad} (Fenster)");
             var ersteller = _erstellerFabrik(_laufwerkQuelle, _befehle);
+            // Schritte nach dem Helfer (einhängen, kopieren, aushängen) meldet der Ersteller sprachunabhängig.
+            ersteller.SchrittMeldung = m => Dispatcher.UIThread.Post(() => { if (auswertung.Zeile(m)) AnzeigeAktualisieren(auswertung); });
             ergebnis = await ersteller.ErstellenAsync(_gewaehlt, eingabe, _paket, z =>
             {
                 log.Schreiben(z);
@@ -264,11 +282,11 @@ public partial class HauptFenster : Window
         }
         catch (Exception e)
         {
-            ergebnis = new ErstellErgebnis(false, "Unerwarteter Fehler: " + e.Message);
+            ergebnis = new ErstellErgebnis(false, Texte.Unerwartet(e.Message));
         }
         zaehlerTimer.Stop();
         await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);     // erst alle noch ausstehenden Zeilen verarbeiten
-        _beschaeftigt = false;
+        Beschaeftigt = false;
         if (ergebnis.Erfolg) { auswertung.Fertig(); SchreibenBalken.Value = auswertung.Gesamt; }
         Ergebnis(ergebnis, protokollPfad);
     }
@@ -277,17 +295,84 @@ public partial class HauptFenster : Window
     {
         SchreibenSchritt.Text = a.Schritt;
         SchreibenBalken.Value = a.Gesamt;
-        SchreibenTempo.Text = a.Geschwindigkeit.Length > 0 ? $"Geschwindigkeit: {a.Geschwindigkeit}" : "";
+        SchreibenTempo.Text = a.Geschwindigkeit.Length > 0 ? Texte.Geschwindigkeit(a.Geschwindigkeit) : "";
     }
 
     // ---------------------------------------------------------------- 5: Ergebnis
 
     void Ergebnis(ErstellErgebnis e, string protokollPfad)
     {
+        _letzterErfolg = e.Erfolg;
+        _letztesProtokoll = protokollPfad;
         Zeige(Seite.Ergebnis);
-        ErgebnisTitel.Text = e.Erfolg ? Texte.ErgebnisErfolg : Texte.ErgebnisFehler;
-        ErgebnisTitel.Foreground = e.Erfolg ? Brushes.SeaGreen : Brushes.IndianRed;
-        ErgebnisText.Text = e.Meldung;
-        ErgebnisProtokoll.Text = protokollPfad.Length > 0 ? string.Format(Texte.ErgebnisProtokoll, protokollPfad) : "";
+        ErgebnisText.Text = e.Meldung;            // bleibt in der Sprache, in der sie entstanden ist
+        ErgebnisTexte();
+    }
+
+    void ErgebnisTexte()
+    {
+        ErgebnisTitel.Text = _letzterErfolg ? Texte.ErgebnisErfolg : Texte.ErgebnisFehler;
+        ErgebnisTitel.Foreground = _letzterErfolg ? Brushes.SeaGreen : Brushes.IndianRed;
+        ErgebnisProtokoll.Text = _letztesProtokoll.Length > 0 ? Texte.ErgebnisProtokoll(_letztesProtokoll) : "";
+    }
+
+    // ---------------------------------------------------------------- Sprache
+
+    void UntertitelSetzen() => Untertitel.Text = _seite switch
+    {
+        Seite.Paket => Texte.UntertitelPaket, Seite.Stick => Texte.UntertitelStick, Seite.Bestaetigen => Texte.UntertitelBestaetigen,
+        Seite.Schreiben => Texte.UntertitelSchreiben, _ => Texte.UntertitelErgebnis,
+    };
+
+    /// <summary>Setzt alle festen Beschriftungen in der aktuellen Sprache und markiert die gewählte Sprache.</summary>
+    void Beschriften()
+    {
+        Title = Texte.Titel;
+        UntertitelSetzen();
+        PaketNochmal.Content = Texte.PaketNochmal;
+        PaketOrdner.Content = Texte.PaketOrdnerWaehlen;
+        StickErklaerung.Text = Texte.StickErklaerung;
+        StickWeiter.Content = Texte.Weiter;
+        BestaetigenZurueck.Content = Texte.Zurueck;
+        BestaetigenStart.Content = Texte.BestaetigenStart;
+        SchreibenDetails.Header = Texte.SchreibenDetails;
+        ErgebnisNochEiner.Content = Texte.ErgebnisNochEiner;
+        ErgebnisSchliessen.Content = Texte.ErgebnisSchliessen;
+        foreach (var (knopf, kuerzel) in new[] { (SpracheEn, "en"), (SpracheDe, "de"), (SpracheNl, "nl") })
+        {
+            var gewaehlt = Sprache.Aktuell == kuerzel;
+            knopf.FontWeight = gewaehlt ? FontWeight.Bold : FontWeight.Normal;
+            knopf.BorderThickness = new Avalonia.Thickness(gewaehlt ? 2 : 1);
+            knopf.BorderBrush = gewaehlt ? Brushes.SteelBlue : Brushes.Transparent;
+        }
+    }
+
+    async Task SpracheWaehlenAsync(string kuerzel)
+    {
+        if (Beschaeftigt || Sprache.Aktuell == kuerzel) return;
+        Sprache.Aktuell = kuerzel;
+        Sprache.Speichern(kuerzel, SprachDatei);
+        Beschriften();
+        Fusszeile.Text = "";
+        switch (_seite)
+        {
+            case Seite.Paket:
+                if (_paket is not null) PaketStatus.Text = Texte.PaketOk(_paket.Manifest.Version);
+                else if (PaketNochmal.IsVisible) await PaketLadenAsync();         // Fehlermeldung in der neuen Sprache neu erzeugen
+                break;
+            case Seite.Stick:
+                var vorher = StickListe.SelectedIndex >= 0 && StickListe.SelectedIndex < _geeignet.Count ? _geeignet[StickListe.SelectedIndex].Pfad : null;
+                _geeignet = [];                                                   // Liste mit den übersetzten Texten neu aufbauen
+                StickListe.ItemsSource = null;
+                await LaufwerkeAktualisierenAsync();
+                if (vorher is not null) StickListe.SelectedIndex = _geeignet.FindIndex(l => l.Pfad == vorher);     // Auswahl behalten
+                break;
+            case Seite.Bestaetigen:
+                BestaetigenTexte();
+                break;
+            case Seite.Ergebnis:
+                ErgebnisTexte();
+                break;
+        }
     }
 }

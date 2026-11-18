@@ -17,10 +17,10 @@ public static class PaketPruefer
     /// <summary>Prüft Größe und SHA-256 einer heruntergeladenen Datei gegen das (bereits geprüfte) Manifest.</summary>
     public static void DateiPruefen(string datei, PaketDatei soll, Action<long>? fortschritt = null)
     {
-        if (!File.Exists(datei)) throw new PaketException($"{soll.Name} fehlt.");
+        if (!File.Exists(datei)) throw new PaketException(Sprache.T("{0} fehlt.", soll.Name));
         var groesse = new FileInfo(datei).Length;
-        if (groesse != soll.Groesse) throw new PaketException($"{soll.Name} hat die falsche Größe ({groesse} statt {soll.Groesse} Bytes).");
+        if (groesse != soll.Groesse) throw new PaketException(Sprache.T("{0} hat die falsche Größe ({1} statt {2} Bytes).", soll.Name, groesse, soll.Groesse));
         if (!string.Equals(Sha256(datei, fortschritt), soll.Sha256, StringComparison.OrdinalIgnoreCase))
-            throw new PaketException($"{soll.Name}: Die Prüfsumme stimmt nicht. Die Datei ist beschädigt und wird nicht benutzt.");
+            throw new PaketException(Sprache.T("{0}: Die Prüfsumme stimmt nicht. Die Datei ist beschädigt und wird nicht benutzt.", soll.Name));
     }
 }

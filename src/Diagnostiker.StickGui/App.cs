@@ -15,6 +15,7 @@ public sealed class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        Diagnostiker.StickKern.Sprache.Aktuell = Diagnostiker.StickKern.Sprache.Gespeichert();      // Standard: Englisch, danach die letzte Wahl
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
             // --quelle <Ordner|https-Adresse> nimmt ein Paket von dort statt von GitHub (zum Beispiel ohne Netz).

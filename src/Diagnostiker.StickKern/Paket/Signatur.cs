@@ -46,9 +46,9 @@ public sealed class Vertrauen(IEnumerable<string> schluessel)
     /// (<c>NeuVertraut</c>), damit der Aufrufer ihn dauerhaft speichern kann.</summary>
     public (Manifest Manifest, string? NeuVertraut) Pruefen(byte[] manifestBytes, string signatur)
     {
-        if (_schluessel.Count == 0) throw new PaketException("Es ist kein vertrauenswürdiger Schlüssel hinterlegt.");
+        if (_schluessel.Count == 0) throw new PaketException(Sprache.T("Es ist kein vertrauenswürdiger Schlüssel hinterlegt."));
         if (!_schluessel.Any(k => Signatur.Pruefen(manifestBytes, signatur, k)))
-            throw new PaketException("Die Signatur des Pakets ist ungültig. Das Paket ist beschädigt oder stammt nicht vom Herausgeber. Es wird nicht benutzt.");
+            throw new PaketException(Sprache.T("Die Signatur des Pakets ist ungültig. Das Paket ist beschädigt oder stammt nicht vom Herausgeber. Es wird nicht benutzt."));
         var m = Manifest.Lesen(manifestBytes);
         string? neu = null;
         if (!string.IsNullOrWhiteSpace(m.NaechsterSchluessel) && !_schluessel.Contains(m.NaechsterSchluessel.Trim()))
@@ -56,7 +56,7 @@ public sealed class Vertrauen(IEnumerable<string> schluessel)
             neu = m.NaechsterSchluessel.Trim();
             try { using var k = ECDsa.Create(); k.ImportSubjectPublicKeyInfo(Convert.FromBase64String(neu), out _); }
             catch (Exception e) when (e is FormatException or CryptographicException or ArgumentException)
-            { throw new PaketException("Das Manifest nennt einen ungültigen Folgeschlüssel."); }
+            { throw new PaketException(Sprache.T("Das Manifest nennt einen ungültigen Folgeschlüssel.")); }
             _schluessel.Add(neu);
         }
         return (m, neu);
@@ -69,7 +69,7 @@ public static class EingebauterSchluessel
     public static string Lesen()
     {
         using var s = typeof(EingebauterSchluessel).Assembly.GetManifestResourceStream("oeffentlicher-schluessel.txt")
-            ?? throw new PaketException("Im Programm ist kein öffentlicher Schlüssel eingebaut.");
+            ?? throw new PaketException(Sprache.T("Im Programm ist kein öffentlicher Schlüssel eingebaut."));
         using var r = new StreamReader(s);
         return r.ReadToEnd().Trim();
     }
