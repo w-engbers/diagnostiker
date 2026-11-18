@@ -41,7 +41,7 @@ public class LaufwerkTests
         var alle = Lesen(
             Platte("nvme0n1", 953 * GiB, "nvme", teile: [Teil("nvme0n1p1", GiB, null, "vfat", "/boot/efi"), Teil("nvme0n1p2", 950 * GiB, null, "ext4", "/")]),
             Platte("sda", 931 * GiB, "sata", teile: [Teil("sda1", 931 * GiB, "daten", "ext4", "/media/werner/daten")]),
-            Platte("sdb", 232 * GiB, "sata", teile: [Teil("sdb1", 232 * GiB, "SECONDARY", "ntfs", "/home/werner/Z")]),
+            Platte("sdb", 232 * GiB, "sata", teile: [Teil("sdb1", 232 * GiB, "SECONDARY", "ntfs", "/home/anna/Z")]),
             Platte("sr0", GiB, "sata", rm: true, type: "rom"));
 
         Assert.Equal(3, alle.Count);   // das optische Laufwerk gehört nicht zu den Laufwerken
@@ -87,7 +87,7 @@ public class LaufwerkTests
     [Theory]
     [InlineData("/")]
     [InlineData("/boot")]
-    [InlineData("/home/werner")]
+    [InlineData("/home/anna")]
     [InlineData("/var/lib/docker")]
     [InlineData("[SWAP]")]
     [InlineData("/media/../etc")]

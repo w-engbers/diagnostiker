@@ -90,7 +90,7 @@ Root-Rechte nur dort, wo nötig (Schreiben des Laufwerks), über `sudo`/`pkexec`
 ## 7. Prüfprogramm (aus dem Prototyp übernommen)
 
 Kern (`Diagnostiker.Kern`), Oberfläche (`Diagnostiker.Tui`), Prüfmodule als JSON-Manifeste (`module/`), Marker-Konvention für Bewertungsregeln,
-ein Protokollordner je Sitzung (`session.json`, `bericht.md`, `roh/`). Siehe `README.md` und `docs/PRUEFMODULE.md` (folgt).
+ein Protokollordner je Sitzung (`session.json`, `bericht.md`, `roh/`). Siehe `ENTWICKLUNG.md` und `docs/PRUEFMODULE.md` (folgt).
 
 ## 8. Tests
 
