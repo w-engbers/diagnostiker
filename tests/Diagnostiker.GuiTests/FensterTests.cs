@@ -97,7 +97,7 @@ public sealed class FensterTests : IDisposable
         var laufwerke = new Quelle(() => fertig ? [Fertig()] : steckt ? [Stick(), Stick("/dev/sdb", 10 * 1024L)] : []);
         var befehle = new Befehle(stickOrdner, beimSchreiben: () => fertig = true);
         var w = new HauptFenster(laufwerke, befehle, ordner, holen, (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 2, BinRoot = false })
-        { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log") };
+        { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null };
         w.Show();
 
         // 1 + 2: Paket wird geprüft, dann kommt die Stickauswahl, zunächst ohne Stick
@@ -144,7 +144,7 @@ public sealed class FensterTests : IDisposable
         var (holen, ordner) = Paket();
         var stickOrdner = Path.Combine(_wurzel, "stick"); Directory.CreateDirectory(stickOrdner);
         var w = new HauptFenster(new Quelle(() => [Stick()]), new Befehle(stickOrdner, pkexecCode: 4), ordner, holen,
-            (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 1, BinRoot = false }) { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log") };
+            (l, b) => new PaketStickErsteller(l, b) { Pause = TimeSpan.Zero, Nachpruefungen = 1, BinRoot = false }) { Aktualisierung = TimeSpan.FromMilliseconds(50), ProtokollPfad = Path.Combine(_wurzel, "lauf.log"), GeschriebeneSektoren = _ => null };
         w.Show();
         await Warten(() => Finde<ListBox>(w, "StickListe").ItemCount == 1, "Stick");
         Finde<ListBox>(w, "StickListe").SelectedIndex = 0;

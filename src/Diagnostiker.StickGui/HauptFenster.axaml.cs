@@ -31,6 +31,23 @@ public partial class HauptFenster : Window
     /// <summary>Pfad der Protokolldatei (null = Standard unter ~/.cache/diagnostiker; im Test ein Wegwerfordner).</summary>
     public string? ProtokollPfad { get; set; }
 
+    /// <summary>
+    /// Liefert, wie viele Sektoren der Kernel seit dem Start auf das Laufwerk geschrieben hat (Name wie „sdc“). Standard: <c>/sys/block/&lt;name&gt;/stat</c>,
+    /// ohne Administratorrechte lesbar. Daraus entsteht der echte Fortschritt beim Schreiben (die Ausgabe von dd zeigt dort nur den Zwischenspeicher).
+    /// </summary>
+    public Func<string, long?> GeschriebeneSektoren { get; set; } = SysfsSektoren;
+
+    static long? SysfsSektoren(string name)
+    {
+        try
+        {
+            if (name.Contains('/') || name.Contains("..")) return null;
+            var f = File.ReadAllText($"/sys/block/{name}/stat").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            return f.Length > 6 ? long.Parse(f[6]) : null;      // siebtes Feld: geschriebene Sektoren
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or FormatException) { return null; }
+    }
+
     /// <summary>Pause der automatischen Laufwerksliste (kurz im Test).</summary>
     public TimeSpan Aktualisierung { get => _aktualisierung.Interval; set => _aktualisierung.Interval = value; }
 
@@ -51,8 +68,7 @@ public partial class HauptFenster : Window
         _aktualisierung.Tick += async (_, _) => await LaufwerkeAktualisierenAsync();
 
         StickErklaerung.Text = Texte.StickErklaerung;
-        SchreibenHinweis.Text = Texte.SchreibenHinweis;
-        PaketNochmal.Click += async (_, _) => await PaketLadenAsync();
+                PaketNochmal.Click += async (_, _) => await PaketLadenAsync();
         PaketOrdner.Click += async (_, _) => await OrdnerWaehlenAsync();
         StickListe.SelectionChanged += (_, _) => StickAuswahlGeaendert();
         StickWeiter.Click += (_, _) => ZuBestaetigen();
@@ -210,6 +226,18 @@ public partial class HauptFenster : Window
         SchreibenSchritt.Text = "Stick wird vorbereitet …";
         SchreibenBalken.Value = 0;
         SchreibenTempo.Text = "";
+        SchreibenHinweis.Text = Texte.SchreibenPasswort;
+        var ersteZeile = false;
+        var schreibStart = (DateTime?)null;
+        var basis = GeschriebeneSektoren(_gewaehlt.Name);
+        var geraet = _gewaehlt.Name;
+        var zaehlerTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        zaehlerTimer.Tick += (_, _) =>
+        {
+            if (basis is null || schreibStart is null || GeschriebeneSektoren(geraet) is not { } jetzt) return;
+            if (auswertung.Geschrieben(Math.Max(0, jetzt - basis.Value) * 512, (DateTime.UtcNow - schreibStart.Value).TotalSeconds)) AnzeigeAktualisieren(auswertung);
+        };
+        zaehlerTimer.Start();
 
         ErstellErgebnis ergebnis;
         string protokollPfad = "";
@@ -224,12 +252,9 @@ public partial class HauptFenster : Window
                 log.Schreiben(z);
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (auswertung.Zeile(z))
-                    {
-                        SchreibenSchritt.Text = auswertung.Schritt;
-                        SchreibenBalken.Value = auswertung.Gesamt;
-                        SchreibenTempo.Text = auswertung.Geschwindigkeit.Length > 0 ? $"Geschwindigkeit: {auswertung.Geschwindigkeit}" : "";
-                    }
+                    if (!ersteZeile) { ersteZeile = true; SchreibenHinweis.Text = Texte.SchreibenLaeuft; }     // die Passwortabfrage ist vorbei
+                    if (z.Contains("Abbild schreiben") && schreibStart is null) schreibStart = DateTime.UtcNow;
+                    if (auswertung.Zeile(z)) AnzeigeAktualisieren(auswertung);
                     if (z.Contains(" copied, ") && ++_ddZaehler % 10 != 0) return;     // dd-Fortschrittszeilen nur gelegentlich im Protokollfeld
                     SchreibenLog.Text += z + "\n";
                     SchreibenLog.CaretIndex = SchreibenLog.Text.Length;
@@ -241,10 +266,18 @@ public partial class HauptFenster : Window
         {
             ergebnis = new ErstellErgebnis(false, "Unerwarteter Fehler: " + e.Message);
         }
+        zaehlerTimer.Stop();
         await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);     // erst alle noch ausstehenden Zeilen verarbeiten
         _beschaeftigt = false;
         if (ergebnis.Erfolg) { auswertung.Fertig(); SchreibenBalken.Value = auswertung.Gesamt; }
         Ergebnis(ergebnis, protokollPfad);
+    }
+
+    void AnzeigeAktualisieren(FortschrittAuswertung a)
+    {
+        SchreibenSchritt.Text = a.Schritt;
+        SchreibenBalken.Value = a.Gesamt;
+        SchreibenTempo.Text = a.Geschwindigkeit.Length > 0 ? $"Geschwindigkeit: {a.Geschwindigkeit}" : "";
     }
 
     // ---------------------------------------------------------------- 5: Ergebnis

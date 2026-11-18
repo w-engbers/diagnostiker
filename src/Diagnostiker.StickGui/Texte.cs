@@ -28,7 +28,8 @@ static class Texte
     public const string BestaetigenStart = "Stick jetzt erstellen";
     public const string Zurueck = "Zurück";
 
-    public const string SchreibenHinweis = "Gleich erscheint ein Fenster, in dem das Passwort abgefragt wird. Den Stick bitte nicht abziehen.";
+    public const string SchreibenPasswort = "Bitte das Passwort eingeben, wenn ein Fenster danach fragt. Den Stick nicht abziehen.";
+    public const string SchreibenLaeuft = "Der Stick wird beschrieben. Das kann je nach Stick einige Minuten dauern, auch wenn die Anzeige zwischendurch kaum weiterrückt. Bitte den Stick nicht abziehen.";
     public const string SchreibenDetails = "Einzelheiten";
 
     public const string ErgebnisErfolg = "Der Stick ist fertig.";

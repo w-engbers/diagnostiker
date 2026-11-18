@@ -25,7 +25,7 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
         ("Abbilddatei prüfen", "Paketdatei prüfen", 0, 3, false),
         ("wird vollständig neu angelegt", "Stick vorbereiten", 3, 1, false),
         ("Abbild schreiben", "Abbild auf den Stick schreiben", 4, 55, true),
-        ("Schreiben beendet", "Zwischenspeicher leeren (bei langsamen Sticks kann das einige Minuten dauern)", 59, 10, false),
+        ("Schreiben beendet", "Abbild wird fertig auf den Stick geschrieben (je nach Stick einige Minuten)", 59, 10, false),
         ("Zurücklesen", "Zurücklesen und vergleichen", 69, 15, true),
         ("Vergleich in Ordnung", "Vergleich in Ordnung", 84, 1, false),
         ("Partitionstabelle", "Partitionen anlegen", 85, 3, false),
@@ -36,6 +36,7 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
     ];
 
     int _index = -1;
+    bool _echt;          // echte Schreibmenge vom Kernel bekannt: die dd-Zeilen (Zwischenspeicher) zählen dann nicht mehr
 
     /// <summary>Wertet eine Zeile aus. Gibt true zurück, wenn sich Schritt, Prozent oder Geschwindigkeit geändert haben.</summary>
     public bool Zeile(string zeile)
@@ -49,14 +50,17 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
             if (i < _index) break;               // nie rückwärts (z. B. Meldungen, die Wörter eines früheren Schritts enthalten)
             _index = i;
             Schritt = Schritte[i].Text;
-            Prozent = Schritte[i].Messbar ? 0 : null;
-            Gesamt = Schritte[i].Anfang;
-            if (!Schritte[i].Messbar) Geschwindigkeit = "";
+            if (!(_echt && i is 2 or 3))
+            {
+                Prozent = Schritte[i].Messbar ? 0 : null;
+                if (!Schritte[i].Messbar) Geschwindigkeit = "";
+            }
+            Gesamt = Math.Max(Gesamt, Schritte[i].Anfang);
             return true;
         }
 
         var m = DdZeile().Match(z);
-        if (m.Success && _index >= 0 && Schritte[_index].Messbar && abbildBytes > 0)
+        if (m.Success && _index >= 0 && Schritte[_index].Messbar && abbildBytes > 0 && !(_echt && _index == 2))
         {
             var bytes = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
             Prozent = Math.Clamp(bytes * 100 / abbildBytes, 0, 100);
@@ -65,6 +69,22 @@ public sealed partial class FortschrittAuswertung(long abbildBytes)
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// Meldet, wie viel der Kernel tatsächlich auf den Stick geschrieben hat (aus <c>/sys/block/&lt;stick&gt;/stat</c>, seit Beginn des Laufs).
+    /// Die Ausgabe von <c>dd</c> zeigt beim Schreiben nur, wie schnell der Zwischenspeicher des Rechners gefüllt wird; das Schreiben auf den Stick
+    /// dauert danach noch (bei langsamen Sticks Minuten). Dieser Wert macht den Fortschritt sichtbar. Wirkt nur in den Schritten Schreiben und Abschluss.
+    /// </summary>
+    public bool Geschrieben(long bytes, double sekunden)
+    {
+        if (_index is not (2 or 3) || abbildBytes <= 0) return false;
+        _echt = true;
+        var p = Math.Clamp(bytes * 100.0 / abbildBytes, 0, 100);
+        Prozent = p;
+        Gesamt = Math.Max(Gesamt, Schritte[2].Anfang + (Schritte[3].Anfang + Schritte[3].Breite - Schritte[2].Anfang) * Math.Min(p, 99) / 100);
+        if (sekunden >= 1) Geschwindigkeit = (bytes / sekunden / 1e6).ToString("0.0", CultureInfo.InvariantCulture).Replace('.', ',') + " MB/s";
+        return true;
     }
 
     /// <summary>Alles abgeschlossen: Balken auf 100.</summary>

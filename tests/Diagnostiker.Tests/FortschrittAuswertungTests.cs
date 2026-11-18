@@ -79,3 +79,46 @@ public class FortschrittAuswertungTests
         Assert.Equal("", a.Schritt);
     }
 }
+
+public class FortschrittEchtTests
+{
+    const long Abbild = 2_000_000_000;
+
+    [Fact]
+    public void Echte_Schreibmenge_ersetzt_die_Zwischenspeicher_Anzeige()
+    {
+        var a = new FortschrittAuswertung(Abbild);
+        a.Zeile("== Abbild schreiben (1907 MiB)");
+        a.Zeile("2000000000 bytes (2.0 GB) copied, 4.0 s, 500 MB/s");            // der Zwischenspeicher ist „fertig“ ...
+        Assert.True(a.Geschrieben(500_000_000, 25));                              // ... der Stick hat aber erst ein Viertel
+        Assert.Equal(25, a.Prozent!.Value, 0.1);
+        Assert.Equal("20,0 MB/s", a.Geschwindigkeit);
+        var gesamt = a.Gesamt;
+        a.Zeile("2000000000 bytes (2.0 GB) copied, 4.0 s, 500 MB/s");            // weitere dd-Zeilen ändern danach nichts mehr
+        Assert.Equal(gesamt, a.Gesamt);
+        Assert.Equal(25, a.Prozent!.Value, 0.1);
+    }
+
+    [Fact]
+    public void Der_Abschlussschritt_setzt_den_Balken_nicht_zurueck()
+    {
+        var a = new FortschrittAuswertung(Abbild);
+        a.Zeile("== Abbild schreiben (1907 MiB)");
+        a.Geschrieben(1_800_000_000, 90);
+        var vorher = a.Gesamt;
+        a.Zeile("== 10:09:33 Schreiben beendet, Zwischenspeicher leeren");
+        Assert.True(a.Gesamt >= vorher);
+        Assert.Equal(90, a.Prozent!.Value, 0.1);
+        a.Geschrieben(2_000_000_000, 100);
+        Assert.InRange(a.Gesamt, vorher, 69.01);
+    }
+
+    [Fact]
+    public void Ausserhalb_von_Schreiben_und_Abschluss_wird_die_Schreibmenge_ignoriert()
+    {
+        var a = new FortschrittAuswertung(Abbild);
+        Assert.False(a.Geschrieben(1000, 5));
+        a.Zeile("== 10:09:33 Zurücklesen und vergleichen");
+        Assert.False(a.Geschrieben(1000, 5));
+    }
+}
