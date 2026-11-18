@@ -2,7 +2,7 @@
   "id": "netz.bluetooth",
   "titel": "Bluetooth-Adapter (Controller, Treiber, Firmware, Sperre, Dienst)",
   "gruppe": "Netzwerk",
-  "beschreibung": "Prüft, ob ein Bluetooth-Adapter da ist und arbeitet. Nur lesend; es wird nicht nach Geräten gesucht (dafür die Bluetooth-Suche).",
+  "beschreibung": "Prüft, ob ein Bluetooth-Adapter da ist und arbeitet, auch ob das System ihn wiederholt zurücksetzen musste (Aufhänger). Nur lesend; es wird nicht nach Geräten gesucht (dafür die Bluetooth-Suche).",
   "schnellpruefung": true,
   "schritte": [
     {
@@ -11,7 +11,7 @@
       "befehl": "sh",
       "argumente": [
         "-c",
-        "SYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nn=0\nfor c in \"$SYSFS\"/class/bluetooth/hci*; do\n  [ -e \"$c\" ] || continue\n  case \"$(basename \"$c\")\" in *:*) continue ;; esac\n  n=$((n+1))\n  echo \"BT-Controller $(basename \"$c\"): Treiber $(basename \"$(readlink \"$c/device/driver\" 2>/dev/null)\" 2>/dev/null)\"\ndone\nusb=0\nfor i in \"$SYSFS\"/bus/usb/devices/*; do\n  [ \"$(cat \"$i/bInterfaceClass\" 2>/dev/null)\" = e0 ] && [ \"$(cat \"$i/bInterfaceSubClass\" 2>/dev/null)\" = 01 ] && usb=1\ndone\nif [ $n -eq 0 ]; then\n  if [ $usb -eq 1 ]; then echo BT_HARDWARE_OHNE_CONTROLLER; else echo KEIN_ADAPTER_BT; fi\nfi\nfw=$(dmesg 2>/dev/null | grep -iE 'bluetooth|btusb|btintel|btrtl|btbcm|hci[0-9]' | grep -iE 'fail|error|timed out|not found' | tail -4)\nif [ -n \"$fw\" ]; then echo FIRMWARE_FEHLER; echo \"$fw\" | sed 's/^/  Kernel: /'; fi\nsp=$(rfkill list bluetooth 2>/dev/null)\necho \"$sp\" | grep -q 'Soft blocked: yes' && echo SPERRE_SOFT\necho \"$sp\" | grep -q 'Hard blocked: yes' && echo SPERRE_HARD\nif [ $n -gt 0 ]; then\n  echo \"Dienst bluetooth: $(systemctl is-active bluetooth 2>&1)\"\n  p=$(bluetoothctl show 2>/dev/null | awk '/Powered:/ {print $2; exit}')\n  echo \"Controller eingeschaltet: ${p:-unbekannt}\"\nfi\nexit 0"
+        "SYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nn=0\nfor c in \"$SYSFS\"/class/bluetooth/hci*; do\n  [ -e \"$c\" ] || continue\n  case \"$(basename \"$c\")\" in *:*) continue ;; esac\n  n=$((n+1))\n  echo \"BT-Controller $(basename \"$c\"): Treiber $(basename \"$(readlink \"$c/device/driver\" 2>/dev/null)\" 2>/dev/null)\"\ndone\nusb=0\nfor i in \"$SYSFS\"/bus/usb/devices/*; do\n  [ \"$(cat \"$i/bInterfaceClass\" 2>/dev/null)\" = e0 ] && [ \"$(cat \"$i/bInterfaceSubClass\" 2>/dev/null)\" = 01 ] && usb=1\ndone\nif [ $n -eq 0 ]; then\n  if [ $usb -eq 1 ]; then echo BT_HARDWARE_OHNE_CONTROLLER; else echo KEIN_ADAPTER_BT; fi\nfi\nbt=$({ dmesg 2>/dev/null || journalctl -k -b --no-pager 2>/dev/null; } | grep -iE 'bluetooth|btusb|btintel|btrtl|btbcm|hci[0-9]')\nresets=$(printf '%s\\n' \"$bt\" | grep -ci 'Resetting usb device')\nif [ \"${resets:-0}\" -ge 3 ]; then\n  echo BT_INSTABIL\nelif [ \"${resets:-0}\" -ge 1 ]; then\n  echo BT_ZURUECKGESETZT\nfi\nif [ \"${resets:-0}\" -ge 1 ]; then\n  echo \"Zurücksetzungen des Adapters im Kernel-Protokoll: $resets\"\n  printf '%s\\n' \"$bt\" | grep -iE 'tx timeout|Opcode .* failed|Resetting usb device' | tail -3 | sed 's/^/  Kernel: /'\nelse\n  fw=$(printf '%s\\n' \"$bt\" | grep -iE 'fail|error|timed out|not found' | tail -4)\n  if [ -n \"$fw\" ]; then echo FIRMWARE_FEHLER; echo \"$fw\" | sed 's/^/  Kernel: /'; fi\nfi\nsp=$(rfkill list bluetooth 2>/dev/null)\necho \"$sp\" | grep -q 'Soft blocked: yes' && echo SPERRE_SOFT\necho \"$sp\" | grep -q 'Hard blocked: yes' && echo SPERRE_HARD\nif [ $n -gt 0 ]; then\n  echo \"Dienst bluetooth: $(systemctl is-active bluetooth 2>&1)\"\n  p=$(bluetoothctl show 2>/dev/null | awk '/Powered:/ {print $2; exit}')\n  echo \"Controller eingeschaltet: ${p:-unbekannt}\"\nfi\nexit 0"
       ],
       "timeoutSekunden": 30,
       "zeigeAusgabe": true,
@@ -28,6 +28,18 @@
           "wert": "KEIN_ADAPTER_BT",
           "status": "Info",
           "meldung": "Kein Bluetooth-Adapter gefunden (nicht eingebaut oder im BIOS abgeschaltet)."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "BT_INSTABIL",
+          "status": "Fehler",
+          "meldung": "Der Bluetooth-Adapter hängt sich wiederholt auf: Das System musste ihn mehrfach zurücksetzen. Adapter, USB-Anschluss oder Stromversorgung sind vermutlich defekt. Anderen USB-Anschluss (direkt am Rechner, ohne Hub) oder einen anderen Adapter ausprobieren."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "BT_ZURUECKGESETZT",
+          "status": "Warnung",
+          "meldung": "Das System hat den Bluetooth-Adapter zurückgesetzt, weil er nicht mehr antwortete. Setzt Bluetooth aus, anderen USB-Anschluss oder anderen Adapter ausprobieren."
         },
         {
           "typ": "enthaelt",

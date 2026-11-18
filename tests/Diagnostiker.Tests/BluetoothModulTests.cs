@@ -37,11 +37,14 @@ public sealed class BluetoothModulTests : IDisposable
     }
 
     (string Ausgabe, Status Status, SchrittErgebnis Ergebnis) Lauf(string modulId, string nm = "active", string powered = "yes",
-        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "")
+        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "", string? dmesgNachher = null)
     {
         Attrappe("systemctl", $"echo {nm}\n");
         Attrappe("rfkill", $"cat <<'EOF'\n{rfkill}\nEOF\n");
-        Attrappe("dmesg", $"cat <<'EOF'\n{dmesg}\nEOF\n");
+        // Mit dmesgNachher liefert die Attrappe beim ersten Aufruf dmesg, danach dmesgNachher (der Adapter ist zwischendurch abgestürzt).
+        var zaehler = Path.Combine(_wurzel, "dmesg-aufrufe");
+        Attrappe("dmesg", dmesgNachher is null ? $"cat <<'EOF'\n{dmesg}\nEOF\n"
+            : $"n=$(cat {zaehler} 2>/dev/null || echo 0); echo $((n+1)) > {zaehler}\nif [ \"$n\" -eq 0 ]; then cat <<'EOF'\n{dmesg}\nEOF\nelse cat <<'EOF'\n{dmesgNachher}\nEOF\nfi\n");
         Attrappe("bluetoothctl", $$"""
             case "$*" in
               show) printf 'Controller 00:11:22:33:44:55 (public)\n\tPowered: {{powered}}\n' ;;
@@ -145,6 +148,50 @@ public sealed class BluetoothModulTests : IDisposable
         Assert.Equal(Status.Warnung, fehler.Status);
     }
 
+    // Die Kernelzeilen stammen aus einem echten Lauf (18.11.2026): Ein Realtek-Adapter (RTL8761B), der bei jedem LE-Scan hängen blieb.
+    const string AufhaengerKernel = """
+        [ 1812.1] Bluetooth: hci4: RTL: RTL: Read reg16 failed (-110)
+        [ 1812.2] Bluetooth: hci4: RTL: fw version 0xdfc6d922
+        [ 1920.3] Bluetooth: hci4: command tx timeout
+        [ 1920.3] Bluetooth: hci4: Resetting usb device.
+        [ 1923.0] Bluetooth: hci5: command 0xfc61 tx timeout
+        [ 1923.0] Bluetooth: hci5: Resetting usb device.
+        [ 2010.1] Bluetooth: hci5: command 0x2005 tx timeout
+        [ 2010.1] Bluetooth: hci5: Opcode 0x200b failed: -110
+        [ 2010.1] Bluetooth: hci5: Resetting usb device.
+        """;
+
+    [Fact]
+    public void Adapter_der_sich_wiederholt_aufhaengt_ist_ein_Fehler_und_kein_Firmwareproblem()
+    {
+        Controller();
+        var r = Lauf(Adapter, dmesg: AufhaengerKernel);
+        Assert.Contains("BT_INSTABIL", r.Ausgabe);
+        Assert.Contains("Zurücksetzungen des Adapters im Kernel-Protokoll: 3", r.Ausgabe);
+        Assert.DoesNotContain("FIRMWARE_FEHLER", r.Ausgabe);            // die irreführende Diagnose „fehlende Firmware“ entfällt
+        Assert.Equal(Status.Fehler, r.Status);
+        Assert.True(Meldet(r.Ergebnis, "hängt sich wiederholt auf"));
+    }
+
+    [Fact]
+    public void Eine_einzelne_Zuruecksetzung_ist_nur_eine_Warnung()
+    {
+        Controller();
+        var r = Lauf(Adapter, dmesg: "[ 12.0] Bluetooth: hci0: command tx timeout\n[ 12.0] Bluetooth: hci0: Resetting usb device.");
+        Assert.Contains("BT_ZURUECKGESETZT", r.Ausgabe);
+        Assert.DoesNotContain("BT_INSTABIL", r.Ausgabe);
+        Assert.Equal(Status.Warnung, r.Status);
+    }
+
+    [Fact]
+    public void Fremde_Zuruecksetzungen_ohne_Bluetooth_zaehlen_nicht()
+    {
+        Controller();
+        var r = Lauf(Adapter, dmesg: "[ 12.0] usb 1-6: Resetting usb device for something else\n[ 13.0] xhci_hcd: reset");
+        Assert.DoesNotContain("BT_", r.Ausgabe);
+        Assert.Equal(Status.Ok, r.Status);
+    }
+
     // ---- Suche ----
 
     [Fact]
@@ -177,6 +224,31 @@ public sealed class BluetoothModulTests : IDisposable
         var unmoeglich = Lauf(Suche, scan: "Failed to start discovery: org.bluez.Error.NotReady");
         Assert.Contains("SUCHE_NICHT_MOEGLICH", unmoeglich.Ausgabe);
         Assert.Equal(Status.Warnung, unmoeglich.Status);
+    }
+
+    [Fact]
+    public void Suche_erkennt_einen_Adapter_der_waehrend_der_Suche_abstuerzt()
+    {
+        Controller();
+        var vorher = "[ 1.0] Bluetooth: hci0: RTL: fw version 0xdfc6d922";
+        var r = Lauf(Suche, dmesg: vorher, dmesgNachher: vorher + "\n[ 9.0] Bluetooth: hci0: command 0x2005 tx timeout\n[ 9.0] Bluetooth: hci0: Resetting usb device.",
+            scan: "Failed to start discovery: org.bluez.Error.InProgress");
+        Assert.Contains("SUCHE_ADAPTER_HING", r.Ausgabe);
+        Assert.Contains("SUCHE_LAEUFT_SCHON", r.Ausgabe);
+        Assert.DoesNotContain("SUCHE_NICHT_MOEGLICH", r.Ausgabe);       // InProgress heißt nicht „Controller ausgeschaltet“
+        Assert.Equal(Status.Fehler, r.Status);
+        Assert.True(Meldet(r.Ergebnis, "abgestürzt"));
+    }
+
+    [Fact]
+    public void Suche_mit_schon_laufender_Suche_ohne_Absturz_ist_nur_eine_Information()
+    {
+        Controller();
+        var r = Lauf(Suche, scan: "Failed to start discovery: org.bluez.Error.InProgress");
+        Assert.Contains("SUCHE_LAEUFT_SCHON", r.Ausgabe);
+        Assert.DoesNotContain("SUCHE_ADAPTER_HING", r.Ausgabe);
+        Assert.Equal(Status.Info, r.Status);
+        Assert.True(Meldet(r.Ergebnis, "andere Bluetooth-Suche"));
     }
 
     [Fact]

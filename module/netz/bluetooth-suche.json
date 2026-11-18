@@ -11,7 +11,7 @@
       "befehl": "sh",
       "argumente": [
         "-c",
-        "command -v bluetoothctl >/dev/null 2>&1 || { echo BLUETOOTHCTL_FEHLT; exit 0; }\nSYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nls \"$SYSFS\"/class/bluetooth/hci* >/dev/null 2>&1 || { echo KEIN_CONTROLLER; exit 0; }\nout=$(bluetoothctl --timeout 10 scan on 2>&1)\nif echo \"$out\" | grep -q 'Failed to start discovery'; then echo SUCHE_NICHT_MOEGLICH; exit 0; fi\nliste=$(echo \"$out\" | grep '\\[NEW\\] Device' | sed 's/.*\\[NEW\\] Device //')\nn=$(printf '%s' \"$liste\" | grep -c .)\necho \"Gefundene Bluetooth-Geräte: $n\"\nprintf '%s\\n' \"$liste\" | head -10 | awk 'NF {addr=$1; $1=\"\"; sub(/^ /,\"\"); split(addr,a,\":\"); printf \"  Gerät \\\"%s\\\" (Hersteller-Kennung %s:%s:%s)\\n\", $0, a[1], a[2], a[3]}'\nexit 0"
+        "command -v bluetoothctl >/dev/null 2>&1 || { echo BLUETOOTHCTL_FEHLT; exit 0; }\nSYSFS=${DIAGNOSTIKER_SYSFS:-/sys}\nls \"$SYSFS\"/class/bluetooth/hci* >/dev/null 2>&1 || { echo KEIN_CONTROLLER; exit 0; }\nzaehl() { { dmesg 2>/dev/null || journalctl -k -b --no-pager 2>/dev/null; } | grep -i 'Bluetooth' | grep -ci 'Resetting usb device'; }\nvor=$(zaehl)\nout=$(bluetoothctl --timeout 10 scan on 2>&1)\nnach=$(zaehl)\nif [ \"${nach:-0}\" -gt \"${vor:-0}\" ]; then echo SUCHE_ADAPTER_HING; fi\nif echo \"$out\" | grep -q 'org.bluez.Error.InProgress'; then echo SUCHE_LAEUFT_SCHON; fi\nif echo \"$out\" | grep -q 'Failed to start discovery' && ! echo \"$out\" | grep -q 'org.bluez.Error.InProgress'; then echo SUCHE_NICHT_MOEGLICH; exit 0; fi\nliste=$(echo \"$out\" | grep '\\[NEW\\] Device' | sed 's/.*\\[NEW\\] Device //')\nn=$(printf '%s' \"$liste\" | grep -c .)\necho \"Gefundene Bluetooth-Geräte: $n\"\nprintf '%s\\n' \"$liste\" | head -10 | awk 'NF {addr=$1; $1=\"\"; sub(/^ /,\"\"); split(addr,a,\":\"); printf \"  Gerät \\\"%s\\\" (Hersteller-Kennung %s:%s:%s)\\n\", $0, a[1], a[2], a[3]}'\nexit 0"
       ],
       "timeoutSekunden": 40,
       "zeigeAusgabe": true,
@@ -28,6 +28,18 @@
           "wert": "KEIN_CONTROLLER",
           "status": "Info",
           "meldung": "Kein Bluetooth-Controller vorhanden: nichts zu suchen."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SUCHE_ADAPTER_HING",
+          "status": "Fehler",
+          "meldung": "Der Bluetooth-Adapter ist während der Suche abgestürzt (das System musste ihn zurücksetzen). Der Adapter ist vermutlich defekt oder instabil: anderen USB-Anschluss oder anderen Adapter ausprobieren."
+        },
+        {
+          "typ": "enthaelt",
+          "wert": "SUCHE_LAEUFT_SCHON",
+          "status": "Info",
+          "meldung": "Es lief schon eine andere Bluetooth-Suche (zum Beispiel im Bluetooth-Fenster der Oberfläche). Dieses Fenster schließen und die Suche wiederholen."
         },
         {
           "typ": "enthaelt",
