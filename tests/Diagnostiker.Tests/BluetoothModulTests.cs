@@ -214,6 +214,21 @@ public sealed class BluetoothModulTests : IDisposable
     }
 
     [Fact]
+    public void Geraete_ohne_Namen_zeigen_nicht_die_volle_Adresse_als_Namen()
+    {
+        Controller();
+        // BlueZ nennt ein Gerät ohne Namen wie seine Adresse (mit Bindestrichen): Das darf nicht im Bericht landen.
+        var r = Lauf(Suche, scan: "[NEW] Device 6B:05:D5:FE:26:43 6B-05-D5-FE-26-43\n[NEW] Device 3D:93:E2:E2:F9:AA 3D-93-E2-E2-F9-AA\n[NEW] Device AA:BB:CC:DD:EE:FF Pixel 8");
+        Assert.Contains("Gefundene Bluetooth-Geräte: 3", r.Ausgabe);
+        Assert.Contains("Gerät \"(ohne Namen)\" (Hersteller-Kennung 6B:05:D5)", r.Ausgabe);
+        Assert.Contains("Gerät \"Pixel 8\" (Hersteller-Kennung AA:BB:CC)", r.Ausgabe);
+        Assert.DoesNotContain("26-43", r.Ausgabe);
+        Assert.DoesNotContain("F9-AA", r.Ausgabe);
+        Assert.DoesNotContain("26:43", r.Ausgabe);
+        Assert.Equal(Status.Ok, r.Status);
+    }
+
+    [Fact]
     public void Suche_ohne_Treffer_ist_nur_eine_Information_und_nicht_moegliche_Suche_eine_Warnung()
     {
         Controller();
