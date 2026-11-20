@@ -37,7 +37,7 @@ public sealed class BluetoothModulTests : IDisposable
     }
 
     (string Ausgabe, Status Status, SchrittErgebnis Ergebnis) Lauf(string modulId, string nm = "active", string powered = "yes",
-        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "", string? dmesgNachher = null, string uptime = "100.00 50.00")
+        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "", string? dmesgNachher = null, string uptime = "100.00 50.00", string bekannt = "")
     {
         Attrappe("systemctl", $"echo {nm}\n");
         Attrappe("rfkill", $"cat <<'EOF'\n{rfkill}\nEOF\n");
@@ -48,6 +48,10 @@ public sealed class BluetoothModulTests : IDisposable
         Attrappe("bluetoothctl", $$"""
             case "$*" in
               show) printf 'Controller 00:11:22:33:44:55 (public)\n\tPowered: {{powered}}\n' ;;
+              devices) cat <<'EOF'
+            {{bekannt}}
+            EOF
+              ;;
               *scan*) cat <<'EOF'
             {{scan}}
             EOF
@@ -244,6 +248,30 @@ public sealed class BluetoothModulTests : IDisposable
         Assert.DoesNotContain("F9-AA", r.Ausgabe);
         Assert.DoesNotContain("26:43", r.Ausgabe);
         Assert.Equal(Status.Ok, r.Status);
+    }
+
+    [Fact]
+    public void Suche_findet_auch_schon_bekannte_Geraete_in_Reichweite_aber_keine_alten()
+    {
+        Controller();
+        // Das Handy war BlueZ schon bekannt (kein „[NEW]“), sendet aber ein Signal: Es muss erscheinen. Ein altes Gerät ohne Signal nicht.
+        var r = Lauf(Suche,
+            scan: "[CHG] Device AA:BB:CC:DD:EE:FF RSSI: 0xffffffd0 (-48)\n[NEW] Device 11:22:33:44:55:66 Kopfhörer\n[CHG] Device AA:BB:CC:DD:EE:FF RSSI: 0xffffffd1 (-47)",
+            bekannt: "Device AA:BB:CC:DD:EE:FF Mein Handy\nDevice 99:88:77:66:55:44 Altes Gerät");
+        Assert.Contains("Gefundene Bluetooth-Geräte: 2", r.Ausgabe);
+        Assert.Contains("Gerät \"Mein Handy\" (Hersteller-Kennung AA:BB:CC)", r.Ausgabe);
+        Assert.Contains("Gerät \"Kopfhörer\" (Hersteller-Kennung 11:22:33)", r.Ausgabe);
+        Assert.DoesNotContain("Altes Gerät", r.Ausgabe);
+        Assert.DoesNotContain("DD:EE:FF", r.Ausgabe);
+        Assert.Equal(Status.Ok, r.Status);
+    }
+
+    [Fact]
+    public void Ein_Geraet_das_neu_gemeldet_wird_und_ein_Signal_sendet_zaehlt_nur_einmal()
+    {
+        Controller();
+        var r = Lauf(Suche, scan: "[NEW] Device AA:BB:CC:DD:EE:FF Mein Handy\n[CHG] Device AA:BB:CC:DD:EE:FF RSSI: 0xffffffd0 (-48)", bekannt: "Device AA:BB:CC:DD:EE:FF Mein Handy");
+        Assert.Contains("Gefundene Bluetooth-Geräte: 1", r.Ausgabe);
     }
 
     [Fact]
