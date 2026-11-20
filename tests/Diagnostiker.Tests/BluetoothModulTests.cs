@@ -37,7 +37,7 @@ public sealed class BluetoothModulTests : IDisposable
     }
 
     (string Ausgabe, Status Status, SchrittErgebnis Ergebnis) Lauf(string modulId, string nm = "active", string powered = "yes",
-        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "", string? dmesgNachher = null)
+        string rfkill = "0: hci0: Bluetooth\n\tSoft blocked: no\n\tHard blocked: no", string dmesg = "", string scan = "", string? dmesgNachher = null, string uptime = "100.00 50.00")
     {
         Attrappe("systemctl", $"echo {nm}\n");
         Attrappe("rfkill", $"cat <<'EOF'\n{rfkill}\nEOF\n");
@@ -61,6 +61,8 @@ public sealed class BluetoothModulTests : IDisposable
         foreach (var a in schritt.Argumente) psi.ArgumentList.Add(a);
         psi.Environment["PATH"] = Bin + ":/usr/bin:/bin";
         psi.Environment["DIAGNOSTIKER_SYSFS"] = Sys;
+        var uptimeDatei = Path.Combine(_wurzel, "uptime"); File.WriteAllText(uptimeDatei, uptime + "\n");
+        psi.Environment["DIAGNOSTIKER_UPTIME"] = uptimeDatei;
         using var p = Process.Start(psi)!;
         var aus = p.StandardOutput.ReadToEnd();
         p.WaitForExit();
@@ -167,10 +169,26 @@ public sealed class BluetoothModulTests : IDisposable
         Controller();
         var r = Lauf(Adapter, dmesg: AufhaengerKernel);
         Assert.Contains("BT_INSTABIL", r.Ausgabe);
-        Assert.Contains("Zurücksetzungen des Adapters im Kernel-Protokoll: 3", r.Ausgabe);
+        Assert.Contains("Zurücksetzungen des Adapters im Kernel-Protokoll (letzte Stunde): 3", r.Ausgabe);
         Assert.DoesNotContain("FIRMWARE_FEHLER", r.Ausgabe);            // die irreführende Diagnose „fehlende Firmware“ entfällt
         Assert.Equal(Status.Fehler, r.Status);
         Assert.True(Meldet(r.Ergebnis, "hängt sich wiederholt auf"));
+    }
+
+    [Fact]
+    public void Zuruecksetzungen_eines_frueheren_Adapters_von_vor_Stunden_zaehlen_nicht()
+    {
+        Controller();
+        // Rechner läuft seit ca. 28 Stunden (100000 s). Der alte Adapter hat sich vor 27 Stunden aufgehängt, der jetzige ist ruhig.
+        var alt = "[ 2900.1] Bluetooth: hci4: command tx timeout\n[ 2900.1] Bluetooth: hci4: Resetting usb device.\n[ 2950.0] Bluetooth: hci5: Resetting usb device.\n[ 3000.0] Bluetooth: hci5: Resetting usb device.";
+        var jetzt = "[99950.0] Bluetooth: hci0: RTL: fw version 0xdfc6d922";
+        var r = Lauf(Adapter, dmesg: alt + "\n" + jetzt, uptime: "100000.00 90000.00");
+        Assert.DoesNotContain("BT_INSTABIL", r.Ausgabe);
+        Assert.DoesNotContain("BT_ZURUECKGESETZT", r.Ausgabe);
+        Assert.Equal(Status.Ok, r.Status);
+        // Dieselben Zurücksetzungen, aber vor wenigen Minuten: Alarm
+        var frisch = "[99700.1] Bluetooth: hci4: command tx timeout\n[99700.1] Bluetooth: hci4: Resetting usb device.\n[99800.0] Bluetooth: hci5: Resetting usb device.\n[99900.0] Bluetooth: hci5: Resetting usb device.";
+        Assert.Contains("BT_INSTABIL", Lauf(Adapter, dmesg: frisch, uptime: "100000.00 90000.00").Ausgabe);
     }
 
     [Fact]
